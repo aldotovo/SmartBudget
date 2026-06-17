@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+:root {
+  font-family:
+    Inter,
+    system-ui,
+    sans-serif;
+
+  color-scheme: dark;
+
+  background-color: #020617;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+body {
+  margin: 0;
+
+  background:
+    linear-gradient(
+      to bottom,
+      #020617,
+      #0f172a
+    );
+
+  color: #f8fafc;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
