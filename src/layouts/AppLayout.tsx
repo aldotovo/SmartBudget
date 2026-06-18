@@ -1,3 +1,4 @@
+
 import type { ReactNode } from 'react'
 import { useState, useEffect } from 'react'
 import {
@@ -11,8 +12,8 @@ import {
 import { NavLink } from 'react-router-dom'
 import { db } from '../database/db'
 import type { User } from '../types/user'
-import { syncToCloud } from '../lib/syncService'
 import { supabase } from '../lib/supabase'
+import { syncService } from '../services/SyncService'
 
 interface AppLayoutProps {
   children: ReactNode
@@ -20,40 +21,51 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [user, setUser] = useState<User | null>(null)
-  const [syncing, setSyncing] = useState(false)
+  const [pendingCount, setPendingCount] = useState(0)
+  const [isSyncing, setIsSyncing] = useState(false)
 
+  // Carrega usuário local
   useEffect(() => {
     loadUser()
   }, [])
 
+  // Verifica pendências periodicamente
+  useEffect(() => {
+    async function checkPending() {
+      const count = await db.transactions
+        .where('sync_status')
+        .equals('pending')
+        .count()
+      setPendingCount(count)
+    }
+
+    checkPending()
+    const interval = setInterval(checkPending, 10000) // a cada 10s
+    return () => clearInterval(interval)
+  }, [])
+
   async function loadUser() {
-    const { data: { user: authUser } } = await supabase.auth.getUser()
-    if (authUser) {
-      const users = await db.users.toArray()
-      if (users.length > 0) {
-        setUser(users[0])
-      } else {
-        setUser({
-          id: 1,
-          nome: authUser.email?.split('@')[0] || 'Usuário',
-          residencia: 'Minha Casa',
-          criado_em: new Date().toISOString(),
-        })
-      }
+    const users = await db.users.toArray()
+    if (users.length > 0) {
+      setUser(users[0])
     }
   }
 
- // Sincroniza com Supabase
-  async function handleSync() {
-    setSyncing(true)
+  // Força sincronização manual
+  async function handleManualSync() {
+    setIsSyncing(true)
     try {
-      await syncToCloud()
-      alert('Dados sincronizados com a nuvem!')
+      await syncService.syncAll()
+      // Atualiza contador após sincronizar
+      const count = await db.transactions
+        .where('sync_status')
+        .equals('pending')
+        .count()
+      setPendingCount(count)
     } catch (error) {
-      console.error('Erro ao sincronizar:', error)
-      alert('Erro ao sincronizar.')
+      console.error('Erro na sincronização manual:', error)
     } finally {
-      setSyncing(false)
+      setIsSyncing(false)
     }
   }
 
@@ -65,7 +77,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   function handleReport() {
     alert('Relatório em breve!')
   }
-   
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col md:flex-row">
       {/* Sidebar desktop */}
@@ -115,7 +127,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           >
             <ClockIcon className="h-5 w-5" aria-hidden="true" /> Histórico
           </NavLink>
-                    <NavLink
+          <NavLink
             to="/metas"
             className={({ isActive }) =>
               `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -140,16 +152,41 @@ export function AppLayout({ children }: AppLayoutProps) {
           </NavLink>
         </nav>
 
-        {/* Footer */}
+        {/* Footer com status de sincronização e ações */}
         <div className="p-4 border-t border-slate-800 flex flex-col gap-2">
+          {/* Indicador de status */}
+          <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-800/50">
+            <span className="text-xs text-slate-400">Status:</span>
+            <div className="flex items-center gap-2">
+              {isSyncing ? (
+                <span className="text-xs text-yellow-400 flex items-center gap-1">
+                  <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                  Sincronizando...
+                </span>
+              ) : pendingCount > 0 ? (
+                <span className="text-xs text-yellow-400 flex items-center gap-1">
+                  <span className="inline-block w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                  {pendingCount} pendente(s)
+                </span>
+              ) : (
+                <span className="text-xs text-emerald-400 flex items-center gap-1">
+                  <span className="inline-block w-2 h-2 bg-emerald-400 rounded-full" />
+                  Sincronizado
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Botão sincronizar manual (opcional) */}
           <button
-            onClick={handleSync}
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-emerald-400 hover:bg-slate-800 hover:text-emerald-300 transition-colors w-full"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-emerald-400 hover:bg-slate-800 hover:text-emerald-300 transition-colors w-full disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182" />
             </svg>
-          {syncing ? 'Sincronizando...' : 'Sincronizar'}
+            {isSyncing ? 'Sincronizando...' : 'Sincronizar agora'}
           </button>
 
           <button
@@ -158,14 +195,13 @@ export function AppLayout({ children }: AppLayoutProps) {
           >
             <ArrowDownTrayIcon className="h-5 w-5" aria-hidden="true" /> Exportar Relatório
           </button>
-                  
+
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-500 hover:text-red-400 hover:bg-slate-800 transition-colors w-full"
           >
             <ArrowLeftStartOnRectangleIcon className="h-5 w-5" aria-hidden="true" /> Sair
           </button>
-        
         </div>
       </aside>
 
@@ -206,7 +242,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         >
           <ClockIcon className="h-6 w-6" aria-hidden="true" /> Histórico
         </NavLink>
-                <NavLink
+        <NavLink
           to="/metas"
           className={({ isActive }) =>
             `flex flex-col items-center text-xs ${

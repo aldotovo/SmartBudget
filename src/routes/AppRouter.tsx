@@ -10,6 +10,7 @@ import { SettingsPage } from '../pages/SettingsPage'
 import { TransactionsPage } from '../pages/TransactionsPage'
 import { ImportBackupPage } from '../pages/ImportBackup'
 import { MetasPage } from '../pages/MetasPage'
+import { ResetPasswordPage } from '../pages/ResetPasswordPage'
 
 export function AppRouter() {
   return (
@@ -21,6 +22,7 @@ export function AppRouter() {
         <Route path="/config" element={<SettingsPage />} />
         <Route path="/import" element={<ImportBackupPage />} />
         <Route path="/metas" element={<MetasPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
       </Routes>
     </BrowserRouter>
   )

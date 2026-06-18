@@ -53,18 +53,21 @@ export function DashboardPage() {
   }
 
   async function loadData() {
+    // 1. Busca transações do mês
     const transactions = await db.transactions
       .where('competencia_mes')
       .equals(month)
       .and((t: Transaction) => t.competencia_ano === year)
       .toArray()
 
+    // 2. Busca categorias e cria mapa UUID -> Category
     const categories = await db.categories.toArray()
-    const categoryMap = new Map<number, Category>()
+    const categoryMap = new Map<string, Category>() // <-- MUDOU: agora usa string (UUID)
     categories.forEach((c) => {
-      if (c.id !== undefined) categoryMap.set(c.id, c)
+      if (c.uuid) categoryMap.set(c.uuid, c) // <-- MUDOU: c.uuid
     })
 
+    // 3. Calcula despesas e receitas
     let expenses = 0
     let incomes = 0
 
@@ -80,6 +83,7 @@ export function DashboardPage() {
     setTotalIncomes(incomes)
     setMonthBalance(incomes - expenses)
 
+    // 4. Busca meta do mês
     const competenceStr = `${year}-${String(month).padStart(2, '0')}`
     const goal = await db.metas.where('competencia').equals(competenceStr).first()
     setMonthGoal(goal || null)
@@ -91,19 +95,21 @@ export function DashboardPage() {
       setGoalPercentage(null)
     }
 
-    const grouped: Record<number, { name: string; amount: number }> = {}
+    // 5. Agrupa despesas por categoria (USANDO categoria_uuid)
+    const grouped: Record<string, { name: string; amount: number }> = {} // <-- MUDOU: chave é string
 
     transactions
       .filter((t) => t.valor > 0)
       .forEach((t) => {
-        if (!grouped[t.categoria_id]) {
-          const cat = categoryMap.get(t.categoria_id)
-          grouped[t.categoria_id] = {
+        const catUuid = t.categoria_uuid // <-- MUDOU: usa categoria_uuid
+        if (!grouped[catUuid]) {
+          const cat = categoryMap.get(catUuid) // <-- MUDOU: busca por UUID
+          grouped[catUuid] = {
             name: cat?.nome || 'Sem categoria',
             amount: 0,
           }
         }
-        grouped[t.categoria_id].amount += t.valor
+        grouped[catUuid].amount += t.valor
       })
 
     const pieData = Object.values(grouped).map((item) => ({
@@ -112,6 +118,7 @@ export function DashboardPage() {
     }))
     setCategoriesData(pieData)
 
+    // 6. Evolução mensal (últimos 6 meses)
     const evolution: { month: string; amount: number }[] = []
 
     for (let i = 5; i >= 0; i--) {
@@ -137,7 +144,7 @@ export function DashboardPage() {
 
     setEvolutionData(evolution)
 
-    // Verifica se existe algum dado no sistema
+    // 7. Verifica se existe algum dado
     const totalTransactions = await db.transactions.count()
     setHasAnyData(totalTransactions > 0)
   }
@@ -185,7 +192,7 @@ export function DashboardPage() {
                   <svg className="h-6 w-6 inline-block mr-2 text-emerald-400" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205 3 1m1.5.5-1.5-.5M6.75 7.364V3h-3v18m3-13.636 10.5-3.819" />
                   </svg>
-              {user.residencia}
+                  {user.residencia}
                 </>
               ) : 'Dashboard'}
             </h2>
@@ -315,7 +322,7 @@ export function DashboardPage() {
                       nameKey="name"
                       cx="50%"
                       cy="50%"
-                      outerRadius={80}                    
+                      outerRadius={80}
                     >
                       {categoriesData.map((_, index) => (
                         <Cell

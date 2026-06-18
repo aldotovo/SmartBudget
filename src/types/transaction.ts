@@ -1,20 +1,22 @@
-// Tipo principal de transação financeira
-// Representa tanto lançamentos avulsos quanto parcelas individuais
 
 import type { PaymentMethodType } from './paymentMethod'
 
 export interface Transaction {
-  id?: number
-
-  uuid?: string
+  // CHAVE PRIMÁRIA GLOBAL (obrigatória)
+  uuid: string
 
   descricao: string
 
-  valor: number // valor da parcela (ou valor total se não parcelado)
+  cartao_uuid?: string
 
-  valor_total?: number // valor total da compra (preenchido apenas quando parcelado)
+  // valor da parcela (ou valor total se não parcelado)
+  valor: number
 
-  categoria_id: number
+  // valor total da compra (preenchido apenas quando parcelado)
+  valor_total?: number
+
+  // AGORA REFERENCIA O UUID DA CATEGORIA (não mais o número)
+  categoria_uuid: string
 
   data_compra: string // data da compra original (ISO: AAAA-MM-DD)
 
@@ -27,23 +29,25 @@ export interface Transaction {
   forma_pagamento: PaymentMethodType
 
   // Campos de parcelamento
-  parcelado: boolean // indica se faz parte de um parcelamento
-
-  total_parcelas?: number // total de parcelas da compra (ex: 12)
-
-  numero_parcela?: number // número sequencial desta parcela (ex: 3)
-
-  installment_group_id?: string // UUID que agrupa parcelas da mesma compra
-
-  primeira_parcela_em?: string // data do primeiro vencimento (pode diferir da data_compra)
+  parcelado: boolean
+  total_parcelas?: number
+  numero_parcela?: number
+  installment_group_id?: string
+  primeira_parcela_em?: string
 
   // Status de pagamento
   pago: boolean
+  data_pagamento?: string
 
-  data_pagamento?: string // data em que foi pago (ISO)
+  // Status de sincronização
+  sync_status: 'synced' | 'pending' | 'failed'
 
   // Metadados
   observacao?: string
 
+  // Data da última modificação (para pull incremental)
+  updated_at: string
+
+  // Mantido
   criado_em: string
 }

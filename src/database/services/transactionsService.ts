@@ -1,18 +1,15 @@
-// Serviço de aplicação para operações com transações
-// Orquestra regras de negócio e persistência
-
+// src/database/services/transactionsService.ts
 import { db } from '../db'
 import { generateInstallments } from '../../domain/financial/generateInstallments'
 import type { Transaction } from '../../types/transaction'
 import type { PaymentMethodType } from '../../types/paymentMethod'
 import { supabase } from '../../lib/supabase'
 
-// Dados de entrada para criar uma transação
 interface CreateTransactionInput {
   descricao: string
   valor: number
   valor_total?: number
-  categoria_id: number
+  categoria_uuid: string
   data_compra: string
   forma_pagamento: PaymentMethodType
   total_parcelas?: number
@@ -20,51 +17,42 @@ interface CreateTransactionInput {
   observacao?: string
 }
 
-/**
- * Cria uma transação (ou múltiplas, se for parcelada)
- * 
- * Retorna array com os IDs das transações criadas
- */
-export async function createTransaction(
-  input: CreateTransactionInput
-): Promise<number[]> {
-  
+export async function createTransaction(input: CreateTransactionInput): Promise<string> {
   const agora = new Date().toISOString()
 
-  // Se for crédito parcelado com mais de 1 parcela
   if (
     input.forma_pagamento === 'credito_parcelado' &&
     input.total_parcelas &&
     input.total_parcelas > 1
   ) {
-    // Gera array de parcelas usando serviço de domínio
     const parcelas = generateInstallments({
       descricao: input.descricao,
       valor_total: input.valor_total || input.valor,
       total_parcelas: input.total_parcelas,
       data_compra: input.data_compra,
       primeira_parcela_em: input.primeira_parcela_em,
-      categoria_id: input.categoria_id,
+      categoria_uuid: input.categoria_uuid,
       forma_pagamento: input.forma_pagamento,
       observacao: input.observacao,
     })
-    
-    // Persiste todas as parcelas de uma vez
+
     await db.transactions.bulkAdd(parcelas as Transaction[])
-    syncTransactionToCloud(parcelas)  
-    return [] as number[]
+    await syncTransactionsToCloud(parcelas)
+    return parcelas[0]?.installment_group_id || ''
   }
-  
-    // Define competência para crédito à vista
+
   const dataCompetencia = new Date(input.primeira_parcela_em || input.data_compra)
   if (!input.primeira_parcela_em && input.forma_pagamento === 'credito_vista') {
     dataCompetencia.setMonth(dataCompetencia.getMonth() + 1)
   }
 
-  const transaction: Omit<Transaction, 'id'> = {
+  const uuid = crypto.randomUUID()
+
+  const transaction: Transaction = {
+    uuid,
     descricao: input.descricao,
     valor: input.valor,
-    categoria_id: input.categoria_id,
+    categoria_uuid: input.categoria_uuid,
     data_compra: input.data_compra,
     data_competencia: dataCompetencia.toISOString().split('T')[0],
     competencia_mes: dataCompetencia.getMonth() + 1,
@@ -73,47 +61,26 @@ export async function createTransaction(
     parcelado: false,
     pago: false,
     observacao: input.observacao,
+    sync_status: 'pending',
     criado_em: agora,
+    updated_at: agora,
   }
-  
-  await db.transactions.add(transaction as Transaction)
-  syncTransactionToCloud([transaction as Transaction])  
-  return [] as number[]
+
+  await db.transactions.add(transaction)
+  await syncTransactionToCloud(transaction)
+
+  return uuid
 }
 
-/**
- * Busca transações por competência (mês/ano)
- */
-export async function getTransactionsByCompetence(
-  mes: number,
-  ano: number
-): Promise<Transaction[]> {
-  return db.transactions
-    .where('competencia_mes')
-    .equals(mes)
-    .and((transaction: Transaction) => transaction.competencia_ano === ano)
-    .toArray()
-}
-
-/**
- * Busca todas as parcelas de um grupo de parcelamento
- */
-export async function getInstallmentGroup(
-  groupId: string
-): Promise<Transaction[]> {
-  return db.transactions
-    .where('installment_group_id')
-    .equals(groupId)
-    .toArray()
-}
-async function syncTransactionToCloud(transactions: Omit<Transaction, 'id'>[]) {
+async function syncTransactionToCloud(tx: Transaction): Promise<void> {
   try {
-    for (const tx of transactions) {
-      await supabase.from('transactions').insert({
+    const { error } = await supabase.from('transactions').upsert(
+      {
+        uuid: tx.uuid,
         descricao: tx.descricao,
         valor: tx.valor,
         valor_total: tx.valor_total,
-        categoria_id: tx.categoria_id,
+        categoria_uuid: tx.categoria_uuid,
         data_compra: tx.data_compra,
         data_competencia: tx.data_competencia,
         competencia_mes: tx.competencia_mes,
@@ -126,9 +93,43 @@ async function syncTransactionToCloud(transactions: Omit<Transaction, 'id'>[]) {
         primeira_parcela_em: tx.primeira_parcela_em,
         pago: tx.pago,
         observacao: tx.observacao,
-      })
-    }
+        sync_status: 'synced',
+        criado_em: tx.criado_em,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'uuid' }
+    )
+
+    if (error) throw error
+
+    await db.transactions.update(tx.uuid, { sync_status: 'synced' })
   } catch (error) {
-    console.error('Erro ao sincronizar com nuvem:', error)
+    console.error('Falha ao enviar transação para a nuvem. Marcada como pendente.', error)
   }
+}
+
+async function syncTransactionsToCloud(transactions: Transaction[]): Promise<void> {
+  for (const tx of transactions) {
+    await syncTransactionToCloud(tx)
+  }
+}
+
+export async function getTransactionsByCompetence(
+  mes: number,
+  ano: number
+): Promise<Transaction[]> {
+  return db.transactions
+    .where('competencia_mes')
+    .equals(mes)
+    .and((tx) => tx.competencia_ano === ano)
+    .toArray()
+}
+
+export async function getInstallmentGroup(
+  groupId: string
+): Promise<Transaction[]> {
+  return db.transactions
+    .where('installment_group_id')
+    .equals(groupId)
+    .toArray()
 }

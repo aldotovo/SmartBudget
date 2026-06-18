@@ -1,5 +1,3 @@
-// Tela de importação de backup JSON
-// Permite ao celular receber dados exportados do desktop
 
 import { useState } from 'react'
 import { db } from '../database/db'
@@ -53,43 +51,99 @@ export function ImportBackupPage() {
     reader.readAsText(file)
   }
 
-  // Executa importação
+  // Executa importação (PRESERVANDO UUIDs)
   async function handleImport() {
     if (!preview) return
 
     setStatus('importing')
 
     try {
-      // Importa categorias (pula duplicadas por nome)
+      const agora = new Date().toISOString()
+
+      // 1. Importa categorias (preservando UUID)
       for (const cat of preview.dados.categories) {
-        const exists = await db.categories.where('nome').equals(cat.nome).first()
+        // Se a categoria não tiver uuid, gera um (backward compatibility)
+        const uuid = cat.uuid || crypto.randomUUID()
+
+        // Verifica se já existe pelo UUID
+        const exists = await db.categories.get(uuid)
         if (!exists) {
           await db.categories.add({
+            uuid,
             nome: cat.nome,
-            tipo: cat.tipo,
-            cor: cat.cor,
-            icone: cat.icone,
-            criado_em: new Date().toISOString(),
+            tipo: cat.tipo || '',
+            cor: cat.cor || '',
+            icone: cat.icone || '',
+            criado_em: cat.criado_em || agora,
+            updated_at: agora,
+          })
+        } else {
+          // Se já existe, atualiza (upsert)
+          await db.categories.update(uuid, {
+            nome: cat.nome,
+            tipo: cat.tipo || '',
+            cor: cat.cor || '',
+            icone: cat.icone || '',
+            updated_at: agora,
           })
         }
       }
 
-      // Importa transações
+      // 2. Importa transações (PRESERVANDO UUID)
       for (const tx of preview.dados.transactions) {
-        await db.transactions.add({
-          ...tx,
-          id: undefined, // deixa o Dexie gerar novo ID
-          criado_em: new Date().toISOString(),
-        })
+        // Garante que tem uuid
+        const uuid = tx.uuid || crypto.randomUUID()
+
+        // Verifica se já existe pelo UUID
+        const exists = await db.transactions.get(uuid)
+        if (!exists) {
+          // Insere com o UUID original
+          await db.transactions.add({
+            ...tx,
+            uuid,
+            sync_status: 'pending', // Marca como pendente para enviar à nuvem
+            criado_em: tx.criado_em || agora,
+            updated_at: agora,
+          })
+        } else {
+          // Se já existe, atualiza (preservando dados)
+          await db.transactions.update(uuid, {
+            ...tx,
+            updated_at: agora,
+          })
+        }
       }
 
-      // Importa metas (pula duplicadas por competência)
+      // 3. Importa metas (PRESERVANDO UUID)
       for (const meta of preview.dados.metas) {
-        const exists = await db.metas.where('competencia').equals(meta.competencia).first()
-        if (!exists) {
+        const uuid = meta.uuid || crypto.randomUUID()
+
+        // Verifica se já existe pelo UUID ou competência
+        const exists = await db.metas.get(uuid)
+        const existsByCompetencia = await db.metas.where('competencia').equals(meta.competencia).first()
+
+        if (!exists && !existsByCompetencia) {
           await db.metas.add({
-            ...meta,
-            id: undefined,
+            uuid,
+            competencia: meta.competencia,
+            valor: meta.valor,
+            criado_em: meta.criado_em || agora,
+            updated_at: agora,
+          })
+        } else if (exists) {
+          // Atualiza pelo UUID
+          await db.metas.update(uuid, {
+            competencia: meta.competencia,
+            valor: meta.valor,
+            updated_at: agora,
+          })
+        }
+        // Se existe por competência mas não por UUID, atualiza o UUID
+        else if (existsByCompetencia && !exists) {
+          await db.metas.update(existsByCompetencia.uuid, {
+            competencia: meta.competencia,
+            valor: meta.valor,
+            updated_at: agora,
           })
         }
       }

@@ -1,3 +1,4 @@
+// src/pages/TransactionsPage.tsx
 import { useState, useEffect } from 'react'
 import { db } from '../database/db'
 import type { Category } from '../types/category'
@@ -10,23 +11,20 @@ import { AppLayout } from '../layouts/AppLayout'
 export function TransactionsPage() {
   // Estados do formulário
   const [descricao, setDescricao] = useState('')
-  const [valorTotal, setValorTotal] = useState<string>('') // string para máscara monetária
-  const [categoriaId, setCategoriaId] = useState<number | null>(null)
+  const [valorTotal, setValorTotal] = useState<string>('')
+  const [categoriaUuid, setCategoriaUuid] = useState<string | null>(null) // <-- mudou
   const [dataCompra, setDataCompra] = useState('')
   const [formaPagamento, setFormaPagamento] = useState<PaymentMethodType>('pix')
   const [totalParcelas, setTotalParcelas] = useState<number>(2)
   const [primeiraParcelaEm, setPrimeiraParcelaEm] = useState('')
   const [observacao, setObservacao] = useState('')
 
-  // Estados de dados
   const [categorias, setCategorias] = useState<Category[]>([])
   const [transacoes, setTransacoes] = useState<Transaction[]>([])
 
-  // Estado de loading
   const [salvando, setSalvando] = useState(false)
-  const [editando, setEditando] = useState<Transaction | null>(null) // Editando transação
+  const [editando, setEditando] = useState<Transaction | null>(null)
 
-  // Filtro de competência
   const [filtroMes, setFiltroMes] = useState<number>(new Date().getMonth() + 1)
   const [filtroAno, setFiltroAno] = useState<number>(new Date().getFullYear())
 
@@ -45,13 +43,11 @@ export function TransactionsPage() {
     setTransacoes(data)
   }
 
-  // Converte valor formatado (R$ 1.234,56) para número
   function parseValorMonetario(valor: string): number {
     const limpo = valor.replace(/[R$\s.]/g, '').replace(',', '.')
     return Number(limpo)
   }
 
-  // Formata número para exibição monetária (R$ 1.234,56)
   function formatarMoeda(valor: number): string {
     return valor.toLocaleString('pt-BR', {
       style: 'currency',
@@ -59,101 +55,100 @@ export function TransactionsPage() {
     })
   }
 
-  // Manipula input monetário com máscara
   function handleValorChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const raw = e.target.value.replace(/[^\d]/g, '') // remove tudo que não é dígito
-    const numero = Number(raw) / 100 // volta duas casas decimais
+    const raw = e.target.value.replace(/[^\d]/g, '')
+    const numero = Number(raw) / 100
     setValorTotal(formatarMoeda(numero))
   }
 
   async function salvarTransacao() {
-  const valorNumerico = parseValorMonetario(valorTotal)
+    const valorNumerico = parseValorMonetario(valorTotal)
 
-  if (!descricao || !valorNumerico || !categoriaId || !dataCompra) {
-    alert('Preencha todos os campos obrigatórios!')
-    return
-  }
-
-  if (formaPagamento === 'credito_parcelado' && totalParcelas < 2) {
-    alert('Crédito parcelado precisa de pelo menos 2 parcelas.')
-    return
-  }
-
-  setSalvando(true)
-
-  try {
-    if (editando?.id) {
-      // Atualiza transação existente
-      await db.transactions.update(editando.id, {
-        descricao,
-        valor: valorNumerico,
-        categoria_id: categoriaId,
-        data_compra: dataCompra,
-        forma_pagamento: formaPagamento,
-        observacao,
-      })
-      setEditando(null)
-    } else {
-      await createTransaction({
-        descricao,
-        valor: valorNumerico,
-        valor_total: valorNumerico,
-        categoria_id: categoriaId,
-        data_compra: dataCompra,
-        forma_pagamento: formaPagamento,
-        total_parcelas: formaPagamento === 'credito_parcelado' ? totalParcelas : undefined,
-        primeira_parcela_em: primeiraParcelaEm || undefined,
-        observacao,
-      })
+    if (!descricao || !valorNumerico || !categoriaUuid || !dataCompra) {
+      alert('Preencha todos os campos obrigatórios!')
+      return
     }
 
-    setDescricao('')
-    setValorTotal('')
-    setCategoriaId(null)
-    setDataCompra('')
-    setFormaPagamento('pix')
-    setTotalParcelas(2)
-    setPrimeiraParcelaEm('')
-    setObservacao('')
+    if (formaPagamento === 'credito_parcelado' && totalParcelas < 2) {
+      alert('Crédito parcelado precisa de pelo menos 2 parcelas.')
+      return
+    }
 
-    await loadTransacoes()
-    alert('Dados enviados com sucesso!')
-  } catch (error) {
-    console.error('Erro ao salvar transação:', error)
-    alert('Erro ao salvar transação. Tente novamente.')
-  } finally {
-    setSalvando(false)
+    setSalvando(true)
+
+    try {
+      if (editando?.uuid) {
+        // Atualiza transação existente (agora com uuid)
+        await db.transactions.update(editando.uuid, {
+          descricao,
+          valor: valorNumerico,
+          categoria_uuid: categoriaUuid,
+          data_compra: dataCompra,
+          forma_pagamento: formaPagamento,
+          observacao,
+          updated_at: new Date().toISOString(),
+        })
+        setEditando(null)
+      } else {
+        await createTransaction({
+          descricao,
+          valor: valorNumerico,
+          valor_total: valorNumerico,
+          categoria_uuid: categoriaUuid, // <-- mudou
+          data_compra: dataCompra,
+          forma_pagamento: formaPagamento,
+          total_parcelas: formaPagamento === 'credito_parcelado' ? totalParcelas : undefined,
+          primeira_parcela_em: primeiraParcelaEm || undefined,
+          observacao,
+        })
+      }
+
+      setDescricao('')
+      setValorTotal('')
+      setCategoriaUuid(null)
+      setDataCompra('')
+      setFormaPagamento('pix')
+      setTotalParcelas(2)
+      setPrimeiraParcelaEm('')
+      setObservacao('')
+
+      await loadTransacoes()
+      alert('Dados enviados com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar transação:', error)
+      alert('Erro ao salvar transação. Tente novamente.')
+    } finally {
+      setSalvando(false)
+    }
   }
-}
 
   async function excluirTransacao(t: Transaction) {
-  if (!t.id) return
+    if (!t.uuid) return
 
-  // Se for parcela de compra parcelada, pergunta se quer apagar todas
-  if (t.parcelado && t.installment_group_id) {
-    const apagarTodas = confirm(
-      'Esta transação faz parte de uma compra parcelada. Deseja apagar TODAS as parcelas?'
-    )
-    if (apagarTodas) {
-      await db.transactions
-        .where('installment_group_id')
-        .equals(t.installment_group_id)
-        .delete()
+    if (t.parcelado && t.installment_group_id) {
+      const apagarTodas = confirm(
+        'Esta transação faz parte de uma compra parcelada. Deseja apagar TODAS as parcelas?'
+      )
+      if (apagarTodas) {
+        await db.transactions
+          .where('installment_group_id')
+          .equals(t.installment_group_id)
+          .delete()
+      } else {
+        await db.transactions.delete(t.uuid) // <-- agora com uuid
+      }
     } else {
-      await db.transactions.delete(t.id)
+      await db.transactions.delete(t.uuid) // <-- agora com uuid
     }
-  } else {
-    await db.transactions.delete(t.id)
+
+    await loadTransacoes()
   }
 
-  await loadTransacoes()
-}
-
- function iniciarEdicao(t: Transaction) {
+  function iniciarEdicao(t: Transaction) {
     setEditando(t)
     setDescricao(t.descricao)
     setValorTotal(formatarMoeda(t.valor))
-    setCategoriaId(t.categoria_id)
+    setCategoriaUuid(t.categoria_uuid) // <-- mudou
     setDataCompra(t.data_compra.split('T')[0])
     setFormaPagamento(t.forma_pagamento)
     setObservacao(t.observacao || '')
@@ -161,13 +156,11 @@ export function TransactionsPage() {
     if (t.primeira_parcela_em) setPrimeiraParcelaEm(t.primeira_parcela_em.split('T')[0])
   }
 
-  // Calcula valor da parcela para preview
   const valorParcelaPreview =
     formaPagamento === 'credito_parcelado' && totalParcelas > 1
       ? parseValorMonetario(valorTotal) / totalParcelas
       : 0
 
-  // Gera meses para o filtro
   const meses = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
     'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
@@ -178,13 +171,11 @@ export function TransactionsPage() {
       <section className="mx-auto max-w-3xl p-4 sm:p-6">
         <h2 className="text-2xl font-bold text-slate-100">Lançamentos</h2>
 
-        {/* Formulário */}
         <div className="mt-6 flex flex-col gap-4 rounded-xl border border-slate-700 bg-slate-900/50 p-4 sm:p-6">
           <h3 className="text-lg font-semibold text-slate-200">
             {editando ? 'Editar lançamento' : 'Novo lançamento'}
           </h3>
 
-          {/* Descrição */}
           <div className="flex flex-col gap-1">
             <label className="text-sm text-slate-400">Descrição</label>
             <input
@@ -196,7 +187,6 @@ export function TransactionsPage() {
             />
           </div>
 
-          {/* Valor */}
           <div className="flex flex-col gap-1">
             <label className="text-sm text-slate-400">Valor total</label>
             <input
@@ -209,24 +199,22 @@ export function TransactionsPage() {
             />
           </div>
 
-          {/* Categoria */}
           <div className="flex flex-col gap-1">
             <label className="text-sm text-slate-400">Categoria</label>
             <select
-              value={categoriaId ?? ''}
-              onChange={(e) => setCategoriaId(Number(e.target.value))}
+              value={categoriaUuid ?? ''}
+              onChange={(e) => setCategoriaUuid(e.target.value)}
               className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none"
             >
               <option value="">Selecione a categoria</option>
               {categorias.map((c) => (
-                <option key={c.id} value={c.id}>
+                <option key={c.uuid} value={c.uuid}> {/* <-- mudou */}
                   {c.nome}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Data da compra */}
           <div className="flex flex-col gap-1">
             <label className="text-sm text-slate-400">Data da compra</label>
             <input
@@ -237,7 +225,6 @@ export function TransactionsPage() {
             />
           </div>
 
-          {/* Forma de pagamento */}
           <div className="flex flex-col gap-1">
             <label className="text-sm text-slate-400">Forma de pagamento</label>
             <select
@@ -253,7 +240,6 @@ export function TransactionsPage() {
             </select>
           </div>
 
-          {/* Data da fatura — apenas Crédito à Vista */}
           {formaPagamento === 'credito_vista' && (
             <div className="flex flex-col gap-1">
               <label className="text-sm text-slate-400">
@@ -269,10 +255,8 @@ export function TransactionsPage() {
             </div>
           )}
 
-          {/* Parcelamento — visível apenas para crédito parcelado */}
           {formaPagamento === 'credito_parcelado' && (
             <>
-              {/* Total de parcelas */}
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-slate-400">Total de parcelas</label>
                 <select
@@ -288,7 +272,6 @@ export function TransactionsPage() {
                 </select>
               </div>
 
-              {/* Data da primeira parcela */}
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-slate-400">
                   Data da primeira parcela
@@ -302,7 +285,6 @@ export function TransactionsPage() {
                 />
               </div>
 
-              {/* Preview do valor da parcela */}
               {valorParcelaPreview > 0 && (
                 <div className="rounded-lg border border-emerald-800 bg-emerald-950/50 p-3">
                   <p className="text-sm text-emerald-300">
@@ -317,7 +299,6 @@ export function TransactionsPage() {
             </>
           )}
 
-          {/* Observação */}
           <div className="flex flex-col gap-1">
             <label className="text-sm text-slate-400">Observação</label>
             <textarea
@@ -329,7 +310,6 @@ export function TransactionsPage() {
             />
           </div>
 
-          {/* Botão salvar */}
           <button
             onClick={salvarTransacao}
             disabled={salvando}
@@ -338,13 +318,13 @@ export function TransactionsPage() {
             {salvando ? 'Salvando...' : editando ? 'Atualizar' : 'Salvar'}
           </button>
 
-            {editando && (
-          <button
+          {editando && (
+            <button
               onClick={() => {
                 setEditando(null)
                 setDescricao('')
                 setValorTotal('')
-                setCategoriaId(null)
+                setCategoriaUuid(null)
                 setDataCompra('')
                 setFormaPagamento('pix')
                 setTotalParcelas(2)
@@ -358,7 +338,6 @@ export function TransactionsPage() {
           )}
         </div>
 
-        {/* Filtro de competência */}
         <div className="mt-8 flex flex-wrap items-center gap-3">
           <h3 className="text-lg font-semibold text-slate-100">Histórico</h3>
           <div className="flex gap-2">
@@ -382,7 +361,6 @@ export function TransactionsPage() {
           </div>
         </div>
 
-        {/* Lista de transações */}
         <div className="mt-4">
           {transacoes.length === 0 ? (
             <p className="text-slate-500 py-8 text-center">
@@ -392,13 +370,13 @@ export function TransactionsPage() {
             <ul className="flex flex-col gap-2">
               {transacoes.map((t) => (
                 <li
-                  key={t.id}
+                  key={t.uuid} // <-- mudou
                   className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900 px-4 py-3"
                 >
                   <div className="flex flex-col gap-0.5">
                     <span className="text-slate-100 font-medium">{t.descricao}</span>
                     <span className="text-xs text-slate-400">
-                      {categorias.find((c) => c.id === t.categoria_id)?.nome || '—'}
+                      {categorias.find((c) => c.uuid === t.categoria_uuid)?.nome || '—'} {/* <-- mudou */}
                       {t.parcelado && ` · ${t.numero_parcela}/${t.total_parcelas}`}
                       {t.pago && ' · Pago'}
                       {t.observacao && ` · ${t.observacao}`}

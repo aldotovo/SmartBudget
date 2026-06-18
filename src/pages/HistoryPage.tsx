@@ -1,43 +1,54 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { db } from '../database/db'
 import type { Transaction } from '../types/transaction'
 import { AppLayout } from '../layouts/AppLayout'
 
 export function HistoryPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [categoryMap, setCategoryMap] = useState<Map<number, string>>(new Map())
+  const [categoryMap, setCategoryMap] = useState<Map<string, string>>(new Map()) // UUID -> nome
 
-  async function loadTransactions() {
+  // Função de carregamento (será chamada manualmente)
+  const loadData = useCallback(async () => {
+    // 1. Busca transações
     const data = await db.transactions.toArray()
     data.sort((a, b) => new Date(b.data_compra).getTime() - new Date(a.data_compra).getTime())
     setTransactions(data)
-  }
 
-  async function loadCategories() {
+    // 2. Busca categorias e monta mapa UUID -> nome
     const cats = await db.categories.toArray()
-    const map = new Map<number, string>()
+    const map = new Map<string, string>()
     cats.forEach((c) => {
-      if (c.id !== undefined) map.set(c.id, c.nome)
+      if (c.uuid) map.set(c.uuid, c.nome)
     })
     setCategoryMap(map)
-  }
-
-    useEffect(() => {
-    loadTransactions()
-    loadCategories()
   }, [])
-  
-  // Recarrega toda vez que a página for exibida
+
+  // Carrega ao montar
   useEffect(() => {
-    const interval = setInterval(() => {
-      loadTransactions()
-    }, 1000) // verifica a cada 1 segundo
-    
-    return () => clearInterval(interval)
-  }, [])
+    loadData()
 
-  function getCategoryName(categoriaId: number): string {
-    return categoryMap.get(categoriaId) || '—'
+    // Recarrega quando a janela ganhar foco (usuário voltou ao app)
+    const handleFocus = () => {
+      loadData()
+    }
+    window.addEventListener('focus', handleFocus)
+
+    // Recarrega quando a página ficar visível novamente (ex: voltou de outra aba)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadData()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [loadData])
+
+  function getCategoryName(categoriaUuid: string): string {
+    return categoryMap.get(categoriaUuid) || '—'
   }
 
   function formatCurrency(value: number): string {
@@ -82,7 +93,7 @@ export function HistoryPage() {
           <div className="flex flex-col gap-3">
             {transactions.map((t) => (
               <article
-                key={t.id}
+                key={t.uuid} // <-- MUDOU: agora usa uuid (string)
                 className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 p-5"
               >
                 <div className="flex flex-col">
@@ -90,7 +101,7 @@ export function HistoryPage() {
                     {t.descricao}
                   </strong>
                   <span className="mt-1 text-xs text-slate-400">
-                    {getCategoryName(t.categoria_id)}
+                    {getCategoryName(t.categoria_uuid)} {/* <-- MUDOU: usa categoria_uuid */}
                     {t.parcelado && ` · ${t.numero_parcela}/${t.total_parcelas}`}
                     {' · '}
                     {new Date(t.data_compra).toLocaleDateString('pt-BR')}

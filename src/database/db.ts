@@ -1,5 +1,6 @@
+// src/database/db.ts
 // Configuração do banco de dados IndexedDB via Dexie.js
-// Schema versão 5: adiciona tabela users
+// VERSÃO 7: Adiciona tabela credit_cards e campo cartao_uuid nas transações
 
 import Dexie from 'dexie'
 import type { Table } from 'dexie'
@@ -9,67 +10,58 @@ import type { Transaction } from '../types/transaction'
 import type { Setting } from '../types/settings'
 import type { Meta } from '../types/meta'
 import type { User } from '../types/user'
+import type { CreditCard } from '../types/creditCard'
 
 export class MyDatabase extends Dexie {
-  categories!: Table<Category, number>
-
-  transactions!: Table<Transaction, number>
-
-  settings!: Table<Setting, number>
-
-  metas!: Table<Meta, number>
-
-  users!: Table<User, number>
+  categories!: Table<Category, string>
+  transactions!: Table<Transaction, string>
+  settings!: Table<Setting, string>
+  metas!: Table<Meta, string>
+  users!: Table<User, string>
+  credit_cards!: Table<CreditCard, string> // <-- NOVA TABELA
 
   constructor() {
     super('MyDatabase')
 
-    // Versão 5: adiciona tabela users
-    this.version(5).stores({
-      categories:
-        '++id, nome, tipo',
-
-      transactions:
-        '++id, categoria_id, forma_pagamento, competencia_mes, competencia_ano, installment_group_id, pago',
-
-      settings:
-        'id',
-
-      metas:
-        '++id, competencia',
-
-      users:
-        'id',
+    // VERSÃO 7: Adiciona tabela credit_cards e índice cartao_uuid
+    this.version(7).stores({
+      transactions: '&uuid, categoria_uuid, competencia_mes, competencia_ano, pago, sync_status, updated_at, cartao_uuid',
+      categories: '&uuid, nome, updated_at',
+      metas: '&uuid, competencia, updated_at',
+      users: '&uuid, auth_id, updated_at',
+      settings: '&uuid',
+      credit_cards: '&uuid, nome, updated_at', // <-- NOVA TABELA
     })
   }
 }
 
-// Exporta instância única do banco
 export const db = new MyDatabase()
 
-// Categorias padrão iniciais
+// ============================================================
+// SEED: Categorias padrão (com UUID)
+// ============================================================
 async function seedCategories() {
   const count = await db.categories.count()
-
   if (count === 0) {
+    const agora = new Date().toISOString()
     await db.categories.bulkAdd([
-      { nome: 'Água', tipo: 'Moradia', criado_em: new Date().toISOString() },
-      { nome: 'Luz', tipo: 'Moradia', criado_em: new Date().toISOString() },
-      { nome: 'Internet', tipo: 'Moradia', criado_em: new Date().toISOString() },
-      { nome: 'Mercado', tipo: 'Alimentação', criado_em: new Date().toISOString() },
-      { nome: 'Restaurante', tipo: 'Alimentação', criado_em: new Date().toISOString() },
-      { nome: 'Combustível', tipo: 'Transporte', criado_em: new Date().toISOString() },
-      { nome: 'Manutenção', tipo: 'Transporte', criado_em: new Date().toISOString() },
-      { nome: 'Farmácia', tipo: 'Saúde', criado_em: new Date().toISOString() },
-      { nome: 'Plano de saúde', tipo: 'Saúde', criado_em: new Date().toISOString() },
-      { nome: 'Streaming', tipo: 'Lazer', criado_em: new Date().toISOString() },
-      { nome: 'Viagens', tipo: 'Lazer', criado_em: new Date().toISOString() },
-      { nome: 'Eletrodomésticos', tipo: 'Patrimônio', criado_em: new Date().toISOString() },
-      { nome: 'Ferramentas', tipo: 'Patrimônio', criado_em: new Date().toISOString() },
-      { nome: 'Eletrônicos', tipo: 'Patrimônio', criado_em: new Date().toISOString() },
+      { uuid: crypto.randomUUID(), nome: 'Água', tipo: 'Moradia', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Luz', tipo: 'Moradia', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Internet', tipo: 'Moradia', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Mercado', tipo: 'Alimentação', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Restaurante', tipo: 'Alimentação', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Combustível', tipo: 'Transporte', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Manutenção', tipo: 'Transporte', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Farmácia', tipo: 'Saúde', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Plano de saúde', tipo: 'Saúde', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Streaming', tipo: 'Lazer', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Viagens', tipo: 'Lazer', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Eletrodomésticos', tipo: 'Patrimônio', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Ferramentas', tipo: 'Patrimônio', criado_em: agora, updated_at: agora },
+      { uuid: crypto.randomUUID(), nome: 'Eletrônicos', tipo: 'Patrimônio', criado_em: agora, updated_at: agora },
     ])
+    console.log('✅ Categorias padrão criadas.')
   }
 }
 
-// Executa seeds ao iniciar
 seedCategories()

@@ -1,4 +1,5 @@
-// Página de metas financeiras
+// src/pages/MetasPage.tsx
+// Página de metas financeiras - VERSÃO UUID
 // Permite definir valor máximo de gastos por competência
 
 import { useState, useEffect } from 'react'
@@ -22,7 +23,7 @@ export function MetasPage() {
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`
   )
   const [valor, setValor] = useState('')
-  const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null) // <-- MUDOU: agora string (uuid)
 
   useEffect(() => {
     loadMetas()
@@ -48,10 +49,12 @@ export function MetasPage() {
       return
     }
 
-    if (editing?.id) {
-      await db.metas.update(editing.id, {
+    if (editing?.uuid) { // <-- MUDOU: usa uuid
+      // Atualiza meta existente
+      await db.metas.update(editing.uuid, { // <-- MUDOU: usa uuid
         competencia,
         valor: valorNumerico,
+        updated_at: new Date().toISOString(),
       })
     } else {
       // Verifica se já existe meta para esta competência
@@ -61,9 +64,14 @@ export function MetasPage() {
         return
       }
 
+      // Gera UUID para a nova meta
+      const uuid = crypto.randomUUID() // <-- NOVO
       await db.metas.add({
+        uuid, // <-- NOVO
         competencia,
         valor: valorNumerico,
+        criado_em: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
     }
 
@@ -78,8 +86,8 @@ export function MetasPage() {
     setShowForm(true)
   }
 
-  async function handleDelete(id: number) {
-    await db.metas.delete(id)
+  async function handleDelete(uuid: string) { // <-- MUDOU: parâmetro agora é string
+    await db.metas.delete(uuid) // <-- MUDOU: usa uuid
     setDeleteConfirm(null)
     loadMetas()
   }
@@ -182,14 +190,14 @@ export function MetasPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {metas.map((meta) => (
-              <div key={meta.id}>
-                {deleteConfirm === meta.id ? (
+              <div key={meta.uuid}> {/* <-- MUDOU: key agora é meta.uuid */}
+                {deleteConfirm === meta.uuid ? ( // <-- MUDOU: compara UUID
                   <div className="flex items-center gap-3 rounded-xl border border-red-800 bg-red-950/30 px-5 py-4">
                     <span className="flex-1 text-sm text-red-300">
                       Excluir meta de {formatCompetencia(meta.competencia)}?
                     </span>
                     <button
-                      onClick={() => handleDelete(meta.id!)}
+                      onClick={() => handleDelete(meta.uuid!)} // <-- MUDOU: usa uuid
                       className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-500 transition-colors"
                     >
                       Sim
@@ -219,7 +227,7 @@ export function MetasPage() {
                         Editar
                       </button>
                       <button
-                        onClick={() => setDeleteConfirm(meta.id!)}
+                        onClick={() => setDeleteConfirm(meta.uuid!)} // <-- MUDOU: usa uuid
                         className="rounded-lg bg-red-600/20 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-600/30 transition-colors"
                       >
                         Excluir
