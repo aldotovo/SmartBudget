@@ -1,6 +1,3 @@
-// src/database/db.ts
-// Configuração do banco de dados IndexedDB via Dexie.js
-// VERSÃO 7: Adiciona tabela credit_cards e campo cartao_uuid nas transações
 
 import Dexie from 'dexie'
 import type { Table } from 'dexie'
@@ -21,7 +18,7 @@ export class MyDatabase extends Dexie {
   credit_cards!: Table<CreditCard, string> // <-- NOVA TABELA
 
   constructor() {
-    super('MyDatabase')
+    super('MyDatabase_v2')
 
     // VERSÃO 7: Adiciona tabela credit_cards e índice cartao_uuid
     this.version(7).stores({
