@@ -3,6 +3,7 @@ import { db } from '../database/db'
 import { supabase } from '../lib/supabase'
 import type { Transaction } from '../types/transaction'
 import type { Category } from '../types/category'
+import type { Setting } from '../types/settings'
 import type { CreditCard } from '../types/creditCard'
 
 export class SyncService {
@@ -38,7 +39,7 @@ export class SyncService {
   }
 
   /**
-   * Sincroniza TODOS os cartões de crédito locais para a nuvem
+   * Sincroniza TODOS os cartões de crédito locais para a nuvem (upsert)
    */
   async syncCreditCards(): Promise<void> {
     const cards = await db.credit_cards.toArray()
@@ -159,7 +160,7 @@ export class SyncService {
   async syncAll(): Promise<void> {
     console.log('🔄 Iniciando sincronização completa...')
     await this.syncCategories()
-    await this.syncCreditCards()      // <-- NOVO
+    await this.syncCreditCards()
     await this.syncPendingTransactions()
     await this.pullTransactions()
     console.log('✅ Sincronização concluída.')
