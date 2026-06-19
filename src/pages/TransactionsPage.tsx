@@ -1,4 +1,4 @@
-// src/pages/TransactionsPage.tsx
+
 import { useState, useEffect } from 'react'
 import { db } from '../database/db'
 import type { Category } from '../types/category'
@@ -7,30 +7,40 @@ import { PAYMENT_METHODS } from '../types/paymentMethod'
 import type { PaymentMethodType } from '../types/paymentMethod'
 import { createTransaction, getTransactionsByCompetence } from '../database/services/transactionsService'
 import { AppLayout } from '../layouts/AppLayout'
+import type { CreditCard } from '../types/creditCard'
 
 export function TransactionsPage() {
-  // Estados do formulário
-  const [descricao, setDescricao] = useState('')
-  const [valorTotal, setValorTotal] = useState<string>('')
-  const [categoriaUuid, setCategoriaUuid] = useState<string | null>(null) // <-- mudou
-  const [dataCompra, setDataCompra] = useState('')
-  const [formaPagamento, setFormaPagamento] = useState<PaymentMethodType>('pix')
-  const [totalParcelas, setTotalParcelas] = useState<number>(2)
-  const [primeiraParcelaEm, setPrimeiraParcelaEm] = useState('')
-  const [observacao, setObservacao] = useState('')
 
-  const [categorias, setCategorias] = useState<Category[]>([])
-  const [transacoes, setTransacoes] = useState<Transaction[]>([])
+// ==================== ESTADOS DO FORMULÁRIO ====================
+const [descricao, setDescricao] = useState('')
+const [valorTotal, setValorTotal] = useState<string>('')
+const [categoriaUuid, setCategoriaUuid] = useState<string | null>(null)
+const [dataCompra, setDataCompra] = useState('')
+const [dataCompraDisplay, setDataCompraDisplay] = useState('') // <-- MÁSCARA
+const [formaPagamento, setFormaPagamento] = useState<PaymentMethodType>('pix')
+const [totalParcelas, setTotalParcelas] = useState<number>(2)
+const [primeiraParcelaEm, setPrimeiraParcelaEm] = useState('')
+const [primeiraParcelaEmDisplay, setPrimeiraParcelaEmDisplay] = useState('') // <-- MÁSCARA
+const [observacao, setObservacao] = useState('')
+const [cartaoUuid, setCartaoUuid] = useState<string | null>(null) 
 
-  const [salvando, setSalvando] = useState(false)
-  const [editando, setEditando] = useState<Transaction | null>(null)
+// ==================== DADOS ====================
+const [categorias, setCategorias] = useState<Category[]>([])
+const [cartoes, setCartoes] = useState<CreditCard[]>([]) 
+const [transacoes, setTransacoes] = useState<Transaction[]>([])
 
-  const [filtroMes, setFiltroMes] = useState<number>(new Date().getMonth() + 1)
-  const [filtroAno, setFiltroAno] = useState<number>(new Date().getFullYear())
+// ==================== ESTADOS DE UI ====================
+const [salvando, setSalvando] = useState(false)
+const [editando, setEditando] = useState<Transaction | null>(null)
 
-  useEffect(() => {
+// ==================== FILTROS ====================
+const [filtroMes, setFiltroMes] = useState<number>(new Date().getMonth() + 1)
+const [filtroAno, setFiltroAno] = useState<number>(new Date().getFullYear())
+
+    useEffect(() => {
     loadCategorias()
     loadTransacoes()
+    loadCartoes()
   }, [filtroMes, filtroAno])
 
   async function loadCategorias() {
@@ -41,6 +51,11 @@ export function TransactionsPage() {
   async function loadTransacoes() {
     const data = await getTransactionsByCompetence(filtroMes, filtroAno)
     setTransacoes(data)
+  }
+
+  async function loadCartoes() {
+    const data = await db.credit_cards.toArray()
+    setCartoes(data)
   }
 
   function parseValorMonetario(valor: string): number {
