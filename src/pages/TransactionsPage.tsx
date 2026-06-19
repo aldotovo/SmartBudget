@@ -255,6 +255,22 @@ const [filtroAno, setFiltroAno] = useState<number>(new Date().getFullYear())
             </select>
           </div>
 
+          {(formaPagamento === 'credito_vista' || formaPagamento === 'credito_parcelado') && (
+            <div className="flex flex-col gap-1">
+              <label className="text-sm text-slate-400">Cartão utilizado</label>
+              <select
+                value={cartaoUuid ?? ''}
+                onChange={(e) => setCartaoUuid(e.target.value || null)}
+                className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none"
+              >
+                <option value="">Selecione o cartão</option>
+                {cartoes.map((c) => (
+                  <option key={c.uuid} value={c.uuid}>{c.nome}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          
           {formaPagamento === 'credito_vista' && (
             <div className="flex flex-col gap-1">
               <label className="text-sm text-slate-400">
@@ -286,7 +302,7 @@ const [filtroAno, setFiltroAno] = useState<number>(new Date().getFullYear())
                   ))}
                 </select>
               </div>
-
+              
               <div className="flex flex-col gap-1">
                 <label className="text-sm text-slate-400">
                   Data da primeira parcela
