@@ -5,5 +5,3 @@ const supabaseAnonKey = 'sb_publishable_f8hpdVyDFikQiHHxLQYXgg_pF6Sp0RZ'
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
-// No final do arquivo, antes de exportar:
-(window as any).supabase = supabase;
