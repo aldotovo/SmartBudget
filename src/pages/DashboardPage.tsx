@@ -5,6 +5,7 @@ import type { Transaction } from '../types/transaction'
 import type { Meta } from '../types/meta'
 import type { Category } from '../types/category'
 import type { User } from '../types/user'
+import { supabase } from '../lib/supabase'
 import {
   PieChart,
   Pie,
@@ -41,15 +42,15 @@ export function DashboardPage() {
   const [hasAnyData, setHasAnyData] = useState(false)
 
   useEffect(() => {
-    loadUser()
     loadData()
   }, [month, year])
 
   async function loadUser() {
-    const users = await db.users.toArray()
-    if (users.length > 0) {
-      setUser(users[0])
-    }
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    if (!authUser) return
+    
+    const user = await db.users.where('auth_id').equals(authUser.id).first()
+    if (user) setUser(user)
   }
 
   async function loadData() {

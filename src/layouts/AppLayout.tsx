@@ -45,11 +45,30 @@ export function AppLayout({ children }: AppLayoutProps) {
   }, [])
 
   async function loadUser() {
-    const users = await db.users.toArray()
-    if (users.length > 0) {
-      setUser(users[0])
-    }
+    // Obtém o auth_id da sessão atual
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    if (!authUser) return
+
+    // Busca o usuário local com esse auth_id
+    const user = await db.users.where('auth_id').equals(authUser.id).first()
+  
+    if (user) {
+      setUser(user)
+    } else {
+      // Se não encontrar, tenta criar (ex: primeiro login neste dispositivo)
+      const emailName = authUser.email?.split('@')[0] || 'Usuário'
+      const newUser = {
+        uuid: crypto.randomUUID(),
+        auth_id: authUser.id,
+        nome: emailName,
+        residencia: 'Minha Casa',
+        criado_em: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }
+    await db.users.add(newUser)
+    setUser(newUser)
   }
+}
 
   // Força sincronização manual
   async function handleManualSync() {
@@ -79,21 +98,17 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col md:flex-row">
-      {/* Sidebar desktop */}
-      <aside className="hidden md:flex md:flex-col md:w-64 border-r border-slate-800 bg-slate-900">
-        {/* Header */}
-        <div className="p-6 border-b border-slate-800">
-          <h1 className="text-xl font-bold text-emerald-400">SmartBudget</h1>
-          {user ? (
-            <div className="mt-3">
-              <p className="text-sm text-slate-300 font-medium">{user.residencia}</p>
-              <p className="text-xs text-slate-500">Olá, {user.nome}</p>
-            </div>
-          ) : (
-            <p className="text-sm text-slate-400 mt-1">Controle doméstico mensal</p>
-          )}
+    <div className="p-6 border-b border-slate-800">
+      <h1 className="text-xl font-bold text-emerald-400">SmartBudget</h1>
+      {user ? (
+        <div className="mt-3">
+          <p className="text-sm text-slate-300 font-medium">{user.residencia}</p>
+          <p className="text-xs text-slate-500">Olá, {user.nome}</p>
         </div>
+      ) : (
+        <p className="text-sm text-slate-400 mt-1">Controle doméstico mensal</p>
+      )}
+    </div>
 
         {/* Navegação principal */}
         <nav className="flex-1 flex flex-col p-4 gap-2">
