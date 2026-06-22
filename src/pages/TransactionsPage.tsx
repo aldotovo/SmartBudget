@@ -58,6 +58,65 @@ const [filtroAno, setFiltroAno] = useState<number>(new Date().getFullYear())
     setCartoes(data)
   }
 
+// ==================== FUNÇÕES DE MÁSCARA DE DATA ====================
+function handleDataChange(e: React.ChangeEvent<HTMLInputElement>) {
+  const raw = e.target.value
+  // Remove tudo que não é número
+  const digits = raw.replace(/\D/g, '')
+  // Limita a 8 dígitos
+  const limited = digits.slice(0, 8)
+  
+  // Aplica a máscara DD/MM/AAAA
+  let masked = ''
+  if (limited.length > 4) {
+    masked = `${limited.slice(0, 2)}/${limited.slice(2, 4)}/${limited.slice(4, 8)}`
+  } else if (limited.length > 2) {
+    masked = `${limited.slice(0, 2)}/${limited.slice(2)}`
+  } else {
+    masked = limited
+  }
+  
+  setDataCompraDisplay(masked)
+  
+  // Converte para YYYY-MM-DD apenas se tiver 8 dígitos
+  if (limited.length === 8) {
+    const dia = limited.slice(0, 2)
+    const mes = limited.slice(2, 4)
+    const ano = limited.slice(4, 8)
+    const isoDate = `${ano}-${mes}-${dia}`
+    setDataCompra(isoDate)
+    console.log('📅 Data ISO:', isoDate) // <-- Log para testar
+  } else {
+    setDataCompra('') // não tem data completa
+  }
+}
+
+function handlePrimeiraParcelaChange(e: React.ChangeEvent<HTMLInputElement>) {
+  const raw = e.target.value
+  const digits = raw.replace(/\D/g, '')
+  const limited = digits.slice(0, 8)
+  
+  let masked = ''
+  if (limited.length > 4) {
+    masked = `${limited.slice(0, 2)}/${limited.slice(2, 4)}/${limited.slice(4, 8)}`
+  } else if (limited.length > 2) {
+    masked = `${limited.slice(0, 2)}/${limited.slice(2)}`
+  } else {
+    masked = limited
+  }
+  
+  setPrimeiraParcelaEmDisplay(masked)
+  
+  if (limited.length === 8) {
+    const dia = limited.slice(0, 2)
+    const mes = limited.slice(2, 4)
+    const ano = limited.slice(4, 8)
+    setPrimeiraParcelaEm(`${ano}-${mes}-${dia}`)
+  } else {
+    setPrimeiraParcelaEm('')
+  }
+}
+
   function parseValorMonetario(valor: string): number {
     const limpo = valor.replace(/[R$\s.]/g, '').replace(',', '.')
     return Number(limpo)
@@ -122,10 +181,13 @@ const [filtroAno, setFiltroAno] = useState<number>(new Date().getFullYear())
       setValorTotal('')
       setCategoriaUuid(null)
       setDataCompra('')
+      setDataCompraDisplay('')  
       setFormaPagamento('pix')
       setTotalParcelas(2)
       setPrimeiraParcelaEm('')
+      setPrimeiraParcelaEmDisplay('') 
       setObservacao('')
+      setCartaoUuid(null)  
 
       await loadTransacoes()
       alert('Dados enviados com sucesso!')
@@ -163,12 +225,26 @@ const [filtroAno, setFiltroAno] = useState<number>(new Date().getFullYear())
     setEditando(t)
     setDescricao(t.descricao)
     setValorTotal(formatarMoeda(t.valor))
-    setCategoriaUuid(t.categoria_uuid) // <-- mudou
-    setDataCompra(t.data_compra.split('T')[0])
+    setCategoriaUuid(t.categoria_uuid)
+  
+    // Converte data ISO para DD/MM/AAAA
+    if (t.data_compra) {
+      const dataISO = t.data_compra.split('T')[0] // 'YYYY-MM-DD'
+      const [ano, mes, dia] = dataISO.split('-')
+      setDataCompraDisplay(`${dia}/${mes}/${ano}`)
+      setDataCompra(dataISO)
+    }
+
     setFormaPagamento(t.forma_pagamento)
     setObservacao(t.observacao || '')
     if (t.total_parcelas) setTotalParcelas(t.total_parcelas)
-    if (t.primeira_parcela_em) setPrimeiraParcelaEm(t.primeira_parcela_em.split('T')[0])
+    if (t.primeira_parcela_em) {
+      const dataISO = t.primeira_parcela_em.split('T')[0]
+      const [ano, mes, dia] = dataISO.split('-')
+      setPrimeiraParcelaEmDisplay(`${dia}/${mes}/${ano}`)
+      setPrimeiraParcelaEm(dataISO)
+    }
+    if (t.cartao_uuid) setCartaoUuid(t.cartao_uuid)
   }
 
   const valorParcelaPreview =
@@ -233,11 +309,12 @@ const [filtroAno, setFiltroAno] = useState<number>(new Date().getFullYear())
           <div className="flex flex-col gap-1">
             <label className="text-sm text-slate-400">Data da compra</label>
             <input
-              type="date"
-              value={dataCompra}
-              onChange={(e) => setDataCompra(e.target.value)}
-              className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none"
-            />
+              type="text"
+                  placeholder="DD/MM/AAAA"
+                  value={dataCompraDisplay}
+                  onChange={handleDataChange}
+                  className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
+                />
           </div>
 
           <div className="flex flex-col gap-1">
@@ -309,10 +386,11 @@ const [filtroAno, setFiltroAno] = useState<number>(new Date().getFullYear())
                   <span className="ml-1 text-xs text-slate-500">(se diferente da data da compra)</span>
                 </label>
                 <input
-                  type="date"
-                  value={primeiraParcelaEm}
-                  onChange={(e) => setPrimeiraParcelaEm(e.target.value)}
-                  className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none"
+                  type="text"
+                  placeholder="DD/MM/AAAA"
+                  value={primeiraParcelaEmDisplay}
+                  onChange={handlePrimeiraParcelaChange}
+                  className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2.5 text-slate-100 placeholder:text-slate-500 focus:border-emerald-500 focus:outline-none"
                 />
               </div>
 
