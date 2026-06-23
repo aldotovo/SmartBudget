@@ -1,3 +1,6 @@
+// src/database/db.ts
+// Configuração do banco de dados IndexedDB via Dexie.js
+// VERSÃO 9: Adiciona user_uuid para isolamento entre usuários
 
 import Dexie from 'dexie'
 import type { Table } from 'dexie'
@@ -15,19 +18,19 @@ export class MyDatabase extends Dexie {
   settings!: Table<Setting, string>
   metas!: Table<Meta, string>
   users!: Table<User, string>
-  credit_cards!: Table<CreditCard, string> // <-- NOVA TABELA
+  credit_cards!: Table<CreditCard, string>
 
   constructor() {
-    super('MyDatabase_v2')
+    super('SmartBudget_v3')
 
-    // VERSÃO 7: Adiciona tabela credit_cards e índice cartao_uuid
-    this.version(7).stores({
-      transactions: '&uuid, categoria_uuid, competencia_mes, competencia_ano, pago, sync_status, updated_at, cartao_uuid',
+    
+    this.version(9).stores({
+      transactions: '&uuid, categoria_uuid, competencia_mes, competencia_ano, pago, sync_status, updated_at, cartao_uuid, user_uuid',
       categories: '&uuid, nome, updated_at',
-      metas: '&uuid, competencia, updated_at',
+      metas: '&uuid, competencia, updated_at, user_uuid',
       users: '&uuid, auth_id, updated_at',
       settings: '&uuid',
-      credit_cards: '&uuid, nome, updated_at', // <-- NOVA TABELA
+      credit_cards: '&uuid, nome, updated_at',
     })
   }
 }

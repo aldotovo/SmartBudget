@@ -1,4 +1,4 @@
-// src/database/services/transactionsService.ts
+
 import { db } from '../db'
 import { generateInstallments } from '../../domain/financial/generateInstallments'
 import type { Transaction } from '../../types/transaction'
@@ -10,11 +10,13 @@ interface CreateTransactionInput {
   valor: number
   valor_total?: number
   categoria_uuid: string
+  cartao_uuid?: string
   data_compra: string
   forma_pagamento: PaymentMethodType
   total_parcelas?: number
   primeira_parcela_em?: string
   observacao?: string
+  user_uuid: string
 }
 
 export async function createTransaction(input: CreateTransactionInput): Promise<string> {
@@ -34,6 +36,7 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
       categoria_uuid: input.categoria_uuid,
       forma_pagamento: input.forma_pagamento,
       observacao: input.observacao,
+      user_uuid: input.user_uuid,
     })
 
     await db.transactions.bulkAdd(parcelas as Transaction[])
@@ -50,6 +53,7 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
 
   const transaction: Transaction = {
     uuid,
+    user_uuid: input.user_uuid,
     descricao: input.descricao,
     valor: input.valor,
     categoria_uuid: input.categoria_uuid,
@@ -64,6 +68,7 @@ export async function createTransaction(input: CreateTransactionInput): Promise<
     sync_status: 'pending',
     criado_em: agora,
     updated_at: agora,
+
   }
 
   await db.transactions.add(transaction)
@@ -77,6 +82,7 @@ async function syncTransactionToCloud(tx: Transaction): Promise<void> {
     const { error } = await supabase.from('transactions').upsert(
       {
         uuid: tx.uuid,
+        user_uuid: tx.user_uuid,
         descricao: tx.descricao,
         valor: tx.valor,
         valor_total: tx.valor_total,

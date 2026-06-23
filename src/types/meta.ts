@@ -5,4 +5,5 @@ export interface Meta {
   valor: number
   criado_em: string
   updated_at: string
+  user_uuid: string 
 }

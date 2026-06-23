@@ -24,4 +24,5 @@ export interface Transaction {
   observacao?: string
   criado_em: string
   updated_at: string
+  user_uuid: string 
 }

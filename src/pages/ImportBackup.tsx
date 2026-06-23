@@ -4,6 +4,7 @@ import { db } from '../database/db'
 import type { Transaction } from '../types/transaction'
 import type { Category } from '../types/category'
 import type { Meta } from '../types/meta'
+import { useUser } from '../contexts/UserContext'
 
 interface BackupData {
   exportado_em: string
@@ -19,6 +20,7 @@ interface BackupData {
 }
 
 export function ImportBackupPage() {
+  const { userUuid } = useUser()
   const [status, setStatus] = useState<'idle' | 'preview' | 'importing' | 'done' | 'error'>('idle')
   const [preview, setPreview] = useState<BackupData | null>(null)
   const [message, setMessage] = useState('')
@@ -125,6 +127,7 @@ export function ImportBackupPage() {
         if (!exists && !existsByCompetencia) {
           await db.metas.add({
             uuid,
+            user_uuid: userUuid,
             competencia: meta.competencia,
             valor: meta.valor,
             criado_em: meta.criado_em || agora,

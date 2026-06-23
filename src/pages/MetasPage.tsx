@@ -1,11 +1,9 @@
-// src/pages/MetasPage.tsx
-// Página de metas financeiras - VERSÃO UUID
-// Permite definir valor máximo de gastos por competência
 
 import { useState, useEffect } from 'react'
 import { db } from '../database/db'
 import type { Meta } from '../types/meta'
 import { AppLayout } from '../layouts/AppLayout'
+import { useUser } from '../contexts/UserContext'
 
 const MONTHS = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -13,6 +11,7 @@ const MONTHS = [
 ]
 
 export function MetasPage() {
+  const { userUuid } = useUser()
   const today = new Date()
   const [metas, setMetas] = useState<Meta[]>([])
   const [showForm, setShowForm] = useState(false)
@@ -49,9 +48,9 @@ export function MetasPage() {
       return
     }
 
-    if (editing?.uuid) { // <-- MUDOU: usa uuid
+    if (editing?.uuid) { 
       // Atualiza meta existente
-      await db.metas.update(editing.uuid, { // <-- MUDOU: usa uuid
+      await db.metas.update(editing.uuid, { 
         competencia,
         valor: valorNumerico,
         updated_at: new Date().toISOString(),
@@ -65,9 +64,10 @@ export function MetasPage() {
       }
 
       // Gera UUID para a nova meta
-      const uuid = crypto.randomUUID() // <-- NOVO
+      const uuid = crypto.randomUUID() 
       await db.metas.add({
-        uuid, // <-- NOVO
+        uuid,
+        user_uuid: userUuid,
         competencia,
         valor: valorNumerico,
         criado_em: new Date().toISOString(),

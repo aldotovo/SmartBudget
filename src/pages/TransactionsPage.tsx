@@ -1,4 +1,5 @@
 
+import { useUser } from '../contexts/UserContext'
 import { useState, useEffect } from 'react'
 import { db } from '../database/db'
 import type { Category } from '../types/category'
@@ -12,6 +13,7 @@ import type { CreditCard } from '../types/creditCard'
 export function TransactionsPage() {
 
 // ==================== ESTADOS DO FORMULÁRIO ====================
+const { userUuid } = useUser()
 const [descricao, setDescricao] = useState('')
 const [valorTotal, setValorTotal] = useState<string>('')
 const [categoriaUuid, setCategoriaUuid] = useState<string | null>(null)
@@ -168,12 +170,14 @@ function handlePrimeiraParcelaChange(e: React.ChangeEvent<HTMLInputElement>) {
           descricao,
           valor: valorNumerico,
           valor_total: valorNumerico,
-          categoria_uuid: categoriaUuid, // <-- mudou
+          categoria_uuid: categoriaUuid, 
           data_compra: dataCompra,
           forma_pagamento: formaPagamento,
           total_parcelas: formaPagamento === 'credito_parcelado' ? totalParcelas : undefined,
           primeira_parcela_em: primeiraParcelaEm || undefined,
           observacao,
+          cartao_uuid: cartaoUuid || undefined,
+          user_uuid: userUuid,
         })
       }
 

@@ -1,5 +1,3 @@
-// src/domain/financial/generateInstallments.ts
-// Serviço de domínio: geração de parcelas financeiras - VERSÃO UUID
 
 import type { Transaction } from '../../types/transaction'
 import type { PaymentMethodType } from '../../types/paymentMethod'
@@ -10,9 +8,10 @@ interface InstallmentInput {
   total_parcelas: number
   data_compra: string
   primeira_parcela_em?: string
-  categoria_uuid: string // <-- mudou
+  categoria_uuid: string 
   forma_pagamento: PaymentMethodType
   observacao?: string
+  user_uuid: string
 }
 
 export function generateInstallments(
@@ -40,7 +39,8 @@ export function generateInstallments(
       : baseAmount
 
     installments.push({
-      uuid: crypto.randomUUID(), // <-- CADA PARCELA TEM SEU UUID
+      uuid: crypto.randomUUID(), 
+      user_uuid: input.user_uuid,
       descricao: `${input.descricao} (${i + 1}/${input.total_parcelas})`,
       valor,
       valor_total: input.valor_total,

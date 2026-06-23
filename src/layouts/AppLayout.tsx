@@ -13,6 +13,7 @@ import { db } from '../database/db'
 import type { User } from '../types/user'
 import { supabase } from '../lib/supabase'
 import { syncService } from '../services/SyncService'
+import { useUser } from '../contexts/UserContext'
 
 interface AppLayoutProps {
   children: ReactNode
@@ -20,6 +21,7 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [user, setUser] = useState<User | null>(null)
+  const { userUuid } = useUser()
   const [pendingCount, setPendingCount] = useState(0)
   const [isSyncing, setIsSyncing] = useState(false)
 
@@ -76,7 +78,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   async function handleManualSync() {
     setIsSyncing(true)
     try {
-      await syncService.syncAll()
+      await syncService.syncAll(userUuid)
       // Atualiza contador após sincronizar
       const count = await db.transactions
         .where('sync_status')

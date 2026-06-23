@@ -6,6 +6,7 @@ import type { Meta } from '../types/meta'
 import type { Category } from '../types/category'
 import type { User } from '../types/user'
 import { supabase } from '../lib/supabase'
+import { useUser } from '../contexts/UserContext'
 import {
   PieChart,
   Pie,
@@ -27,6 +28,7 @@ const MONTHS = [
 ]
 
 export function DashboardPage() {
+  const { userUuid } = useUser()
   const today = new Date()
   const [month, setMonth] = useState<number>(today.getMonth() + 1)
   const [year, setYear] = useState<number>(today.getFullYear())
@@ -58,7 +60,7 @@ export function DashboardPage() {
     const transactions = await db.transactions
       .where('competencia_mes')
       .equals(month)
-      .and((t: Transaction) => t.competencia_ano === year)
+      .and((t: Transaction) => t.competencia_ano === year && t.user_uuid === userUuid)
       .toArray()
 
     // 2. Busca categorias e cria mapa UUID -> Category
@@ -102,9 +104,9 @@ export function DashboardPage() {
     transactions
       .filter((t) => t.valor > 0)
       .forEach((t) => {
-        const catUuid = t.categoria_uuid // <-- MUDOU: usa categoria_uuid
+        const catUuid = t.categoria_uuid 
         if (!grouped[catUuid]) {
-          const cat = categoryMap.get(catUuid) // <-- MUDOU: busca por UUID
+          const cat = categoryMap.get(catUuid) 
           grouped[catUuid] = {
             name: cat?.nome || 'Sem categoria',
             amount: 0,
@@ -130,7 +132,7 @@ export function DashboardPage() {
       const loopTransactions = await db.transactions
         .where('competencia_mes')
         .equals(loopMonth)
-        .and((t: Transaction) => t.competencia_ano === loopYear)
+        .and((t: Transaction) => t.competencia_ano === loopYear && t.user_uuid === userUuid)
         .toArray()
 
       const sum = loopTransactions

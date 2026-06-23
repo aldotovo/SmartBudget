@@ -14,7 +14,7 @@ export class SyncService {
     const categories = await db.categories.toArray()
     if (categories.length === 0) return
 
-    console.log(`📤 Enviando ${categories.length} categorias para a nuvem...`)
+    console.log(`Enviando ${categories.length} categorias para a nuvem...`)
 
     for (const cat of categories) {
       try {
@@ -31,9 +31,9 @@ export class SyncService {
           { onConflict: 'uuid' }
         )
         if (error) throw error
-        console.log(`✅ Categoria ${cat.nome} (${cat.uuid}) sincronizada.`)
+        console.log(`Categoria ${cat.nome} (${cat.uuid}) sincronizada.`)
       } catch (err) {
-        console.error(`❌ Erro ao sincronizar categoria ${cat.nome}:`, err)
+        console.error(`Erro ao sincronizar categoria ${cat.nome}:`, err)
       }
     }
   }
@@ -45,13 +45,14 @@ export class SyncService {
     const cards = await db.credit_cards.toArray()
     if (cards.length === 0) return
 
-    console.log(`📤 Enviando ${cards.length} cartões para a nuvem...`)
+    console.log(`Enviando ${cards.length} cartões para a nuvem...`)
 
     for (const card of cards) {
       try {
         const { error } = await supabase.from('credit_cards').upsert(
           {
             uuid: card.uuid,
+            user_uuid: tx.user_uuid,
             nome: card.nome,
             criado_em: card.criado_em,
             updated_at: new Date().toISOString(),
@@ -87,6 +88,7 @@ export class SyncService {
         const { error } = await supabase.from('transactions').upsert(
           {
             uuid: tx.uuid,
+            user_uuid: tx.user_uuid
             descricao: tx.descricao,
             valor: tx.valor,
             valor_total: tx.valor_total,
@@ -125,7 +127,7 @@ export class SyncService {
   /**
    * Busca dados novos da nuvem (pull incremental) para transações
    */
-  async pullTransactions(): Promise<void> {
+  async pullTransactions(userUuid: string): Promise<void> {
     try {
       const lastSync = await db.settings.get('last_sync')
       const since = lastSync?.updated_at || '1970-01-01T00:00:00Z'
@@ -133,7 +135,9 @@ export class SyncService {
       const { data: transactions, error } = await supabase
         .from('transactions')
         .select('*')
+        .eq('user_uuid', userUuid)
         .gt('updated_at', since)
+        
 
       if (error) throw error
 
@@ -150,20 +154,21 @@ export class SyncService {
         })
       }
     } catch (err) {
-      console.warn('⚠️ Pull de transações falhou (pode ser CORS):', err)
+      console.warn('Pull de transações falhou:', err)
     }
   }
 
   /**
    * Sincronização completa: categorias, cartões, transações (envio e pull)
    */
-  async syncAll(): Promise<void> {
-    console.log('🔄 Iniciando sincronização completa...')
+  async syncAll(userUuid: string): Promise<void> {
+    console.log('Iniciando sincronização completa...')
     await this.syncCategories()
     await this.syncCreditCards()
     await this.syncPendingTransactions()
     await this.pullTransactions()
-    console.log('✅ Sincronização concluída.')
+    await this.pullTransactions(userUuid)
+    console.log('Sincronização concluída.')
   }
 }
 

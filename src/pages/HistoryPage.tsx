@@ -2,15 +2,21 @@ import { useEffect, useState, useCallback } from 'react'
 import { db } from '../database/db'
 import type { Transaction } from '../types/transaction'
 import { AppLayout } from '../layouts/AppLayout'
+import { useUser } from '../contexts/UserContext' // <-- ADICIONADO
 
 export function HistoryPage() {
+  const { userUuid } = useUser() // <-- ADICIONADO
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [categoryMap, setCategoryMap] = useState<Map<string, string>>(new Map()) // UUID -> nome
 
   // Função de carregamento (será chamada manualmente)
   const loadData = useCallback(async () => {
-    // 1. Busca transações
-    const data = await db.transactions.toArray()
+    // 1. Busca transações filtrando por user_uuid
+    const data = await db.transactions
+      .where('user_uuid')
+      .equals(userUuid) // <-- FILTRO ADICIONADO
+      .toArray()
+    
     data.sort((a, b) => new Date(b.data_compra).getTime() - new Date(a.data_compra).getTime())
     setTransactions(data)
 
@@ -21,7 +27,7 @@ export function HistoryPage() {
       if (c.uuid) map.set(c.uuid, c.nome)
     })
     setCategoryMap(map)
-  }, [])
+  }, [userUuid]) // <-- DEPENDÊNCIA ADICIONADA
 
   // Carrega ao montar
   useEffect(() => {
@@ -93,7 +99,7 @@ export function HistoryPage() {
           <div className="flex flex-col gap-3">
             {transactions.map((t) => (
               <article
-                key={t.uuid} // <-- MUDOU: agora usa uuid (string)
+                key={t.uuid}
                 className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 p-5"
               >
                 <div className="flex flex-col">
@@ -101,7 +107,7 @@ export function HistoryPage() {
                     {t.descricao}
                   </strong>
                   <span className="mt-1 text-xs text-slate-400">
-                    {getCategoryName(t.categoria_uuid)} {/* <-- MUDOU: usa categoria_uuid */}
+                    {getCategoryName(t.categoria_uuid)}
                     {t.parcelado && ` · ${t.numero_parcela}/${t.total_parcelas}`}
                     {' · '}
                     {new Date(t.data_compra).toLocaleDateString('pt-BR')}
