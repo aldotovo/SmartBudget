@@ -3,7 +3,6 @@ import { db } from '../database/db'
 import { supabase } from '../lib/supabase'
 import type { Transaction } from '../types/transaction'
 import type { Category } from '../types/category'
-import type { Setting } from '../types/settings'
 import type { CreditCard } from '../types/creditCard'
 
 export class SyncService {
@@ -52,7 +51,6 @@ export class SyncService {
         const { error } = await supabase.from('credit_cards').upsert(
           {
             uuid: card.uuid,
-            user_uuid: tx.user_uuid,
             nome: card.nome,
             criado_em: card.criado_em,
             updated_at: new Date().toISOString(),
@@ -60,9 +58,9 @@ export class SyncService {
           { onConflict: 'uuid' }
         )
         if (error) throw error
-        console.log(`✅ Cartão ${card.nome} (${card.uuid}) sincronizado.`)
+        console.log(`Cartão ${card.nome} (${card.uuid}) sincronizado.`)
       } catch (err) {
-        console.error(`❌ Erro ao sincronizar cartão ${card.nome}:`, err)
+        console.error(`Erro ao sincronizar cartão ${card.nome}:`, err)
       }
     }
   }
@@ -77,18 +75,18 @@ export class SyncService {
       .toArray()
 
     if (pending.length === 0) {
-      console.log('✅ Nenhuma transação pendente.')
+      console.log('Nenhuma transação pendente.')
       return
     }
 
-    console.log(`🔄 Tentando sincronizar ${pending.length} transações pendentes...`)
+    console.log(`Tentando sincronizar ${pending.length} transações pendentes...`)
 
     for (const tx of pending) {
       try {
         const { error } = await supabase.from('transactions').upsert(
           {
             uuid: tx.uuid,
-            user_uuid: tx.user_uuid
+            user_uuid: tx.user_uuid,
             descricao: tx.descricao,
             valor: tx.valor,
             valor_total: tx.valor_total,
@@ -116,9 +114,9 @@ export class SyncService {
         if (error) throw error
 
         await db.transactions.update(tx.uuid, { sync_status: 'synced' })
-        console.log(`✅ Transação ${tx.uuid} sincronizada.`)
+        console.log(`Transação ${tx.uuid} sincronizada.`)
       } catch (err) {
-        console.error(`❌ Falha ao sincronizar ${tx.uuid}:`, err)
+        console.error(`Falha ao sincronizar ${tx.uuid}:`, err)
         // Mantém como 'pending' para tentar depois
       }
     }
@@ -126,6 +124,7 @@ export class SyncService {
 
   /**
    * Busca dados novos da nuvem (pull incremental) para transações
+   * Filtra por user_uuid para isolar os dados do usuário atual
    */
   async pullTransactions(userUuid: string): Promise<void> {
     try {
@@ -137,7 +136,6 @@ export class SyncService {
         .select('*')
         .eq('user_uuid', userUuid)
         .gt('updated_at', since)
-        
 
       if (error) throw error
 
@@ -160,13 +158,13 @@ export class SyncService {
 
   /**
    * Sincronização completa: categorias, cartões, transações (envio e pull)
+   * Requer userUuid para filtrar os dados baixados
    */
   async syncAll(userUuid: string): Promise<void> {
     console.log('Iniciando sincronização completa...')
     await this.syncCategories()
     await this.syncCreditCards()
     await this.syncPendingTransactions()
-    await this.pullTransactions()
     await this.pullTransactions(userUuid)
     console.log('Sincronização concluída.')
   }
