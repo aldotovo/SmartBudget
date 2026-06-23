@@ -6,45 +6,50 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'  // <-- IMPORTAÇÃO ADICIONADA
 import { supabase } from './lib/supabase'
 import { syncService } from './services/SyncService'
+import { useUser } from './contexts/UserContext'
 
 // Tipo para controlar qual tela de autenticação exibir (incluindo 'reset')
-type AuthScreen = 'login' | 'forgot' | 'reset'  // <-- 'reset' adicionado
+type AuthScreen = 'login' | 'forgot' | 'reset' 
 
 function App() {
   const [session, setSession] = useState<boolean | null>(null)
   const [screen, setScreen] = useState<AuthScreen>('login')
+  const { userUuid } = useUser()
 
   useEffect(() => {
     // 1. Verifica sessão atual
     supabase.auth.getSession().then(({ data: { session } }) => {
       const isLoggedIn = !!session
       setSession(isLoggedIn)
-      if (isLoggedIn) {
-        syncService.syncAll()
+      
+      // Se já estiver logado, sincroniza imediatamente
+      if (isLoggedIn && userUuid) { 
+        syncService.syncAll(userUuid) 
       }
     })
 
-    // 2. Escuta mudanças na autenticação
+    
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const isLoggedIn = !!session
       setSession(isLoggedIn)
-      if (isLoggedIn) {
-        syncService.syncAll()
+      
+      if (isLoggedIn && userUuid) {
+        syncService.syncAll(userUuid)
       }
     })
 
-    // 3. Sincroniza quando a janela ganha foco
+    
     const handleFocus = () => {
-      if (session) {
-        syncService.syncAll()
+      if (session && userUuid) {
+        syncService.syncAll(userUuid)
       }
     }
     window.addEventListener('focus', handleFocus)
 
     // 4. Sincroniza a cada 5 minutos
     const interval = setInterval(() => {
-      if (session) {
-        syncService.syncAll()
+      if (session && userUuid) {
+        syncService.syncAll(userUuid)
       }
     }, 5 * 60 * 1000)
 
@@ -61,7 +66,7 @@ function App() {
       window.removeEventListener('focus', handleFocus)
       clearInterval(interval)
     }
-  }, [session])
+  }, [session, userUuid])
 
   // Tela de carregamento
   if (session === null) {
