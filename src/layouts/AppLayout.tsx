@@ -78,13 +78,6 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   async function handleLogout() {
-    try {
-      await db.transactions.clear()
-      await db.metas.clear()
-      console.log('Dados locais limpos.')
-    } catch (error) {
-      console.warn('Erro ao limpar dados locais:', error)
-    }
     await supabase.auth.signOut()
     window.location.reload()
   }

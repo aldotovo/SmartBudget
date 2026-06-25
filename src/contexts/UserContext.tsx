@@ -5,7 +5,7 @@ import type { User } from '../types/user'
 
 interface UserContextType {
   user: User | null
-  userUuid: string | null
+  userUuid: string 
   isLoading: boolean
   refreshUser: () => Promise<void>
 }
@@ -40,7 +40,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const value = {
     user,
-    userUuid: user?.uuid,
+    userUuid: user?.uuid || '',
     isLoading,
     refreshUser: loadUser,
   }

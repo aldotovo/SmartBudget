@@ -122,14 +122,19 @@ export class SyncService {
     }
   }
 
-  /**
-   * Busca dados novos da nuvem (pull incremental) para transações
-   * Filtra por user_uuid para isolar os dados do usuário atual
-   */
+  
   async pullTransactions(userUuid: string): Promise<void> {
     try {
       const lastSync = await db.settings.get('last_sync')
       const since = lastSync?.updated_at || '1970-01-01T00:00:00Z'
+    
+    
+      let query = supabase.from('transactions').select('*')
+      if (userUuid) {
+        query = query.eq('user_uuid', userUuid)
+      } else {
+        console.warn('⚠️ pullTransactions: baixando todos os dados (sem userUuid)')
+    }
 
       const { data: transactions, error } = await supabase
         .from('transactions')
