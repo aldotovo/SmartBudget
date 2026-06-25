@@ -40,7 +40,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const value = {
     user,
-    userUuid: user?.uuid || null,
+    userUuid: user?.uuid,
     isLoading,
     refreshUser: loadUser,
   }
