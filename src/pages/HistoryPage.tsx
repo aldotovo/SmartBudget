@@ -2,10 +2,10 @@ import { useEffect, useState, useCallback } from 'react'
 import { db } from '../database/db'
 import type { Transaction } from '../types/transaction'
 import { AppLayout } from '../layouts/AppLayout'
-import { useUser } from '../contexts/UserContext' // <-- ADICIONADO
+import { useUser } from '../contexts/UserContext' 
 
 export function HistoryPage() {
-  const { userUuid } = useUser() // <-- ADICIONADO
+  const { userUuid } = useUser()
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [categoryMap, setCategoryMap] = useState<Map<string, string>>(new Map()) // UUID -> nome
 
@@ -14,7 +14,7 @@ export function HistoryPage() {
     // 1. Busca transações filtrando por user_uuid
     const data = await db.transactions
       .where('user_uuid')
-      .equals(userUuid) // <-- FILTRO ADICIONADO
+      .equals(userUuid) 
       .toArray()
     
     data.sort((a, b) => new Date(b.data_compra).getTime() - new Date(a.data_compra).getTime())
