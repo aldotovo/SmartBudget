@@ -17,7 +17,7 @@ export function AuthPage({ onAuthenticated, onForgotPassword }: AuthPageProps) {
   const [message, setMessage] = useState('')
 
   async function handleSignUp() {
-    console.log('Iniciando signUp...')
+    console.log('🚀 Iniciando signUp...')
     if (!email || !password || !nome || !residencia) {
       setMessage('Preencha todos os campos.')
       return
@@ -31,12 +31,12 @@ export function AuthPage({ onAuthenticated, onForgotPassword }: AuthPageProps) {
     setMessage('')
 
     try {
-      console.log('Enviando requisição para Supabase...')
+      console.log('📤 Enviando requisição para Supabase Auth...')
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
       })
-      console.log('Resposta do Supabase:', { data, error })
+      console.log('📥 Resposta do Supabase Auth:', { data, error })
 
       if (error) {
         setMessage(error.message)
@@ -45,43 +45,71 @@ export function AuthPage({ onAuthenticated, onForgotPassword }: AuthPageProps) {
       }
 
       const authId = data.user?.id
-      console.log('authId:', authId)
+      console.log('🆔 authId:', authId)
 
-      if (authId) {
-        const uuid = crypto.randomUUID ? crypto.randomUUID() : 'fallback-' + Date.now()
-        console.log('UUID gerado:', uuid)
-        const agora = new Date().toISOString()
+      if (!authId) {
+        setMessage('Erro ao obter ID do usuário.')
+        setLoading(false)
+        return
+      }
 
-        // 1. SALVA LOCALMENTE (IndexedDB)
-        await db.users.put({
-          uuid,
-          auth_id: authId,
-          nome: nome.trim(),
-          residencia: residencia.trim(),
-          criado_em: agora,
-          updated_at: agora,
-        })
-        console.log('✅ Usuário salvo localmente.')
+      const uuid = crypto.randomUUID ? crypto.randomUUID() : 'fallback-' + Date.now()
+      console.log('🔑 UUID gerado:', uuid)
+      const agora = new Date().toISOString()
 
-        // 2. SALVA NO SUPABASE
-        const { error: supabaseError } = await supabase.from('users').insert({
-          uuid,
-          auth_id: authId,
-          nome: nome.trim(),
-          residencia: residencia.trim(),
-          criado_em: agora,
-          updated_at: agora,
-        })
-        if (supabaseError) {
-          console.error('❌ Erro ao salvar usuário no Supabase:', supabaseError)
-        } else {
-          console.log('✅ Usuário salvo no Supabase.')
-        }
+      // 1. SALVA LOCALMENTE (IndexedDB)
+      console.log('💾 Salvando localmente...')
+      await db.users.put({
+        uuid,
+        auth_id: authId,
+        nome: nome.trim(),
+        residencia: residencia.trim(),
+        criado_em: agora,
+        updated_at: agora,
+      })
+      console.log('✅ Usuário salvo LOCALMENTE.')
+
+      // 2. SALVA NO SUPABASE
+      console.log('☁️ Enviando para o Supabase...')
+      const { error: supabaseError } = await supabase.from('users').insert({
+        uuid,
+        auth_id: authId,
+        nome: nome.trim(),
+        residencia: residencia.trim(),
+        criado_em: agora,
+        updated_at: agora,
+      })
+
+      if (supabaseError) {
+        console.error('❌ Erro ao salvar usuário no Supabase:', supabaseError)
+        setMessage('Erro ao salvar seus dados. Tente novamente.')
+        setLoading(false)
+        return
+      }
+      console.log('✅ Usuário salvo no Supabase (insert OK).')
+
+      // 3. VERIFICA SE FOI SALVO
+      console.log('🔍 Verificando se o usuário foi salvo no Supabase...')
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('uuid', uuid)
+        .single()
+
+      if (verifyError) {
+        console.error('❌ Erro ao verificar usuário no Supabase:', verifyError)
+        setMessage('Usuário cadastrado, mas não foi possível verificar no banco.')
+      } else if (verifyData) {
+        console.log('✅ Usuário VERIFICADO no Supabase:', verifyData)
+        console.log('📊 Tabela users no Supabase agora tem:', await supabase.from('users').select('*'))
+      } else {
+        console.warn('⚠️ Usuário NÃO encontrado no Supabase após inserção.')
+        setMessage('Usuário cadastrado, mas não encontrado no banco. Contate o suporte.')
       }
 
       setMessage('Código de confirmação enviado para seu email. Verifique sua caixa de entrada.')
     } catch (err) {
-      console.error('Erro inesperado:', err)
+      console.error('❌ Erro inesperado:', err)
       setMessage('Erro interno. Verifique o console.')
     } finally {
       setLoading(false)
@@ -98,6 +126,7 @@ export function AuthPage({ onAuthenticated, onForgotPassword }: AuthPageProps) {
     setMessage('')
 
     try {
+      console.log('📤 Enviando requisição de login...')
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -110,16 +139,20 @@ export function AuthPage({ onAuthenticated, onForgotPassword }: AuthPageProps) {
       }
 
       const authId = data.user?.id
+      console.log('🆔 authId:', authId)
 
       if (authId) {
+        // Verifica se o usuário já existe localmente
         const existingUser = await db.users.where('auth_id').equals(authId).first()
 
         if (!existingUser) {
+          console.log('👤 Usuário não encontrado localmente. Criando...')
           const emailName = email.split('@')[0]
           const uuid = crypto.randomUUID()
           const agora = new Date().toISOString()
 
           // 1. SALVA LOCALMENTE
+          console.log('💾 Salvando localmente...')
           await db.users.put({
             uuid,
             auth_id: authId,
@@ -128,9 +161,10 @@ export function AuthPage({ onAuthenticated, onForgotPassword }: AuthPageProps) {
             criado_em: agora,
             updated_at: agora,
           })
-          console.log('✅ Usuário salvo localmente.')
+          console.log('✅ Usuário salvo LOCALMENTE.')
 
           // 2. SALVA NO SUPABASE
+          console.log('☁️ Enviando para o Supabase...')
           const { error: supabaseError } = await supabase.from('users').insert({
             uuid,
             auth_id: authId,
@@ -139,17 +173,36 @@ export function AuthPage({ onAuthenticated, onForgotPassword }: AuthPageProps) {
             criado_em: agora,
             updated_at: agora,
           })
+
           if (supabaseError) {
             console.error('❌ Erro ao salvar usuário no Supabase:', supabaseError)
           } else {
-            console.log('✅ Usuário salvo no Supabase.')
+            console.log('✅ Usuário salvo no Supabase (insert OK).')
+
+            // 3. VERIFICA SE FOI SALVO
+            console.log('🔍 Verificando se o usuário foi salvo no Supabase...')
+            const { data: verifyData, error: verifyError } = await supabase
+              .from('users')
+              .select('*')
+              .eq('uuid', uuid)
+              .single()
+
+            if (verifyError) {
+              console.error('❌ Erro ao verificar usuário no Supabase:', verifyError)
+            } else if (verifyData) {
+              console.log('✅ Usuário VERIFICADO no Supabase:', verifyData)
+            } else {
+              console.warn('⚠️ Usuário NÃO encontrado no Supabase após inserção.')
+            }
           }
+        } else {
+          console.log('✅ Usuário já existe localmente:', existingUser)
         }
       }
 
       onAuthenticated()
     } catch (err) {
-      console.error('Erro inesperado:', err)
+      console.error('❌ Erro inesperado:', err)
       setMessage('Erro ao fazer login. Tente novamente.')
     } finally {
       setLoading(false)
