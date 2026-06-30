@@ -1,4 +1,3 @@
-
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { db } from '../database/db'
@@ -18,59 +17,76 @@ export function AuthPage({ onAuthenticated, onForgotPassword }: AuthPageProps) {
   const [message, setMessage] = useState('')
 
   async function handleSignUp() {
-  console.log('Iniciando signUp...')
-  if (!email || !password || !nome || !residencia) {
-    setMessage('Preencha todos os campos.')
-    return
-  }
-  if (password.length < 6) {
-    setMessage('A senha deve ter pelo menos 6 caracteres.')
-    return
-  }
-
-  setLoading(true)
-  setMessage('')
-
-  try {
-    console.log('Enviando requisição para Supabase...')
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    })
-    console.log('Resposta do Supabase:', { data, error })
-
-    if (error) {
-      setMessage(error.message)
-      setLoading(false)
+    console.log('Iniciando signUp...')
+    if (!email || !password || !nome || !residencia) {
+      setMessage('Preencha todos os campos.')
+      return
+    }
+    if (password.length < 6) {
+      setMessage('A senha deve ter pelo menos 6 caracteres.')
       return
     }
 
-    const authId = data.user?.id
-    console.log('authId:', authId)
+    setLoading(true)
+    setMessage('')
 
-    if (authId) {
-      const uuid = crypto.randomUUID ? crypto.randomUUID() : 'fallback-' + Date.now()
-      console.log('UUID gerado:', uuid)
-
-      await db.users.put({
-        uuid,
-        auth_id: authId,
-        nome: nome.trim(),
-        residencia: residencia.trim(),
-        criado_em: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+    try {
+      console.log('Enviando requisição para Supabase...')
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
       })
-      console.log('Usuário salvo localmente.')
-    }
+      console.log('Resposta do Supabase:', { data, error })
 
-    setMessage('Código de confirmação enviado para seu email. Verifique sua caixa de entrada.')
-  } catch (err) {
-    console.error('Erro inesperado:', err)
-    setMessage('Erro interno. Verifique o console.')
-  } finally {
-    setLoading(false)
+      if (error) {
+        setMessage(error.message)
+        setLoading(false)
+        return
+      }
+
+      const authId = data.user?.id
+      console.log('authId:', authId)
+
+      if (authId) {
+        const uuid = crypto.randomUUID ? crypto.randomUUID() : 'fallback-' + Date.now()
+        console.log('UUID gerado:', uuid)
+        const agora = new Date().toISOString()
+
+        // 1. SALVA LOCALMENTE (IndexedDB)
+        await db.users.put({
+          uuid,
+          auth_id: authId,
+          nome: nome.trim(),
+          residencia: residencia.trim(),
+          criado_em: agora,
+          updated_at: agora,
+        })
+        console.log('✅ Usuário salvo localmente.')
+
+        // 2. SALVA NO SUPABASE
+        const { error: supabaseError } = await supabase.from('users').insert({
+          uuid,
+          auth_id: authId,
+          nome: nome.trim(),
+          residencia: residencia.trim(),
+          criado_em: agora,
+          updated_at: agora,
+        })
+        if (supabaseError) {
+          console.error('❌ Erro ao salvar usuário no Supabase:', supabaseError)
+        } else {
+          console.log('✅ Usuário salvo no Supabase.')
+        }
+      }
+
+      setMessage('Código de confirmação enviado para seu email. Verifique sua caixa de entrada.')
+    } catch (err) {
+      console.error('Erro inesperado:', err)
+      setMessage('Erro interno. Verifique o console.')
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
   async function handleSignIn() {
     if (!email || !password) {
@@ -81,39 +97,63 @@ export function AuthPage({ onAuthenticated, onForgotPassword }: AuthPageProps) {
     setLoading(true)
     setMessage('')
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (error) {
-      setMessage(error.message)
-    } else {
+      if (error) {
+        setMessage(error.message)
+        setLoading(false)
+        return
+      }
+
       const authId = data.user?.id
 
       if (authId) {
-        // Verifica se o usuário já existe localmente
         const existingUser = await db.users.where('auth_id').equals(authId).first()
 
         if (!existingUser) {
-          // Primeiro login neste dispositivo: cria usuário local
-          // Usa o email como nome padrão (o usuário pode alterar depois)
           const emailName = email.split('@')[0]
+          const uuid = crypto.randomUUID()
+          const agora = new Date().toISOString()
+
+          // 1. SALVA LOCALMENTE
           await db.users.put({
-            uuid: crypto.randomUUID(),
+            uuid,
             auth_id: authId,
             nome: emailName || 'Usuário',
             residencia: 'Minha Casa',
-            criado_em: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            criado_em: agora,
+            updated_at: agora,
           })
+          console.log('✅ Usuário salvo localmente.')
+
+          // 2. SALVA NO SUPABASE
+          const { error: supabaseError } = await supabase.from('users').insert({
+            uuid,
+            auth_id: authId,
+            nome: emailName || 'Usuário',
+            residencia: 'Minha Casa',
+            criado_em: agora,
+            updated_at: agora,
+          })
+          if (supabaseError) {
+            console.error('❌ Erro ao salvar usuário no Supabase:', supabaseError)
+          } else {
+            console.log('✅ Usuário salvo no Supabase.')
+          }
         }
       }
 
       onAuthenticated()
+    } catch (err) {
+      console.error('Erro inesperado:', err)
+      setMessage('Erro ao fazer login. Tente novamente.')
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   return (
@@ -212,7 +252,7 @@ export function AuthPage({ onAuthenticated, onForgotPassword }: AuthPageProps) {
                 Esqueci minha senha
               </button>
             </div>
-          )}    
+          )}
         </div>
       </div>
     </div>
