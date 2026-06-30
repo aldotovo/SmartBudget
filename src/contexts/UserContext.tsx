@@ -18,21 +18,27 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const loadUser = async () => {
     setIsLoading(true)
-    try {
-      const { data: { user: authUser } } = await supabase.auth.getUser()
-      if (!authUser) {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (!authUser) {
         setUser(null)
         return
       }
-      const localUser = await db.users.where('auth_id').equals(authUser.id).first()
-      setUser(localUser || null)
-    } catch (error) {
-      console.error('Erro ao carregar usuário:', error)
-      setUser(null)
-    } finally {
-      setIsLoading(false)
-    }
+  const localUser = await db.users.where('auth_id').equals(authUser.id).first()
+  if (localUser) {
+    setUser(localUser)
+  } else {
+    console.warn('Usuário local não encontrado para auth_id:', authUser.id)
+    setUser(null)
+      // NÃO CRIA AUTOMATICAMENTE
   }
+} catch (error) {
+  console.error('Erro ao carregar usuário:', error)
+  setUser(null)
+  } finally {
+  setIsLoading(false)
+  }
+}
 
   useEffect(() => {
     loadUser()

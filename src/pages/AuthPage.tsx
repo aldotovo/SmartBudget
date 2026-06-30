@@ -60,7 +60,7 @@ export function AuthPage({ onAuthenticated, onForgotPassword }: AuthPageProps) {
         criado_em: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      console.log('✅ Usuário salvo localmente.')
+      console.log('Usuário salvo localmente.')
     }
 
     setMessage('Código de confirmação enviado para seu email. Verifique sua caixa de entrada.')
