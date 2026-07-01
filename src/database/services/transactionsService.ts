@@ -22,6 +22,12 @@ interface CreateTransactionInput {
 export async function createTransaction(input: CreateTransactionInput): Promise<string> {
   const agora = new Date().toISOString()
 
+  const userExists = await db.users.get(input.user_uuid);
+  if (!userExists) {
+    console.error('❌ Usuário não encontrado para user_uuid:', input.user_uuid);
+    throw new Error('Usuário inválido. Não é possível criar transação.');
+  }
+
   if (
     input.forma_pagamento === 'credito_parcelado' &&
     input.total_parcelas &&

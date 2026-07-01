@@ -14,6 +14,7 @@ import type { User } from '../types/user'
 import { supabase } from '../lib/supabase'
 import { syncService } from '../services/SyncService'
 import { useUser } from '../contexts/UserContext'
+import { useNavigate } from 'react-router-dom'
 
 interface AppLayoutProps {
   children: ReactNode
@@ -24,6 +25,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { userUuid, refreshUser } = useUser()
   const [pendingCount, setPendingCount] = useState(0)
   const [isSyncing, setIsSyncing] = useState(false)
+  const navigate = useNavigate()
 
   useEffect(() => {
     loadUser()
@@ -78,9 +80,26 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut()
-    window.location.reload()
+    try {
+    // Limpa dados locais 
+    await db.transactions.clear()
+    await db.metas.clear()
+    console.log('Dados locais limpos.')
+    } catch (error) {
+    console.warn('Erro ao limpar dados locais:', error)
   }
+
+  try {
+      await supabase.auth.signOut()
+      console.log('Logout no Supabase concluído.')
+  } catch (error) {
+    console.error('Erro ao fazer logout:', error)
+  }
+
+  // Redireciona para a página inicial e recarrega
+  navigate('/')
+  window.location.reload()
+}
 
   function handleReport() {
     alert('Relatório em breve!')

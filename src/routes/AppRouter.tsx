@@ -2,6 +2,7 @@ import {
   BrowserRouter,
   Route,
   Routes,
+  Navigate,
 } from 'react-router-dom'
 
 import { DashboardPage } from '../pages/DashboardPage'
@@ -23,6 +24,7 @@ export function AppRouter() {
         <Route path="/import" element={<ImportBackupPage />} />
         <Route path="/metas" element={<MetasPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   )
