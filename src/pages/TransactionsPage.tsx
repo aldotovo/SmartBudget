@@ -150,6 +150,21 @@ function handlePrimeiraParcelaChange(e: React.ChangeEvent<HTMLInputElement>) {
       return
     }
 
+    console.log('userUuid sendo enviado para createTransaction:', userUuid);
+    console.log('Dados da transação:', {
+      descricao,
+      valor: valorNumerico,
+      valor_total: valorNumerico,
+      categoria_uuid: categoriaUuid,
+      data_compra: dataCompra,
+      forma_pagamento: formaPagamento,
+      total_parcelas: formaPagamento === 'credito_parcelado' ? totalParcelas : undefined,
+      primeira_parcela_em: primeiraParcelaEm || undefined,
+      observacao,
+      cartao_uuid: cartaoUuid || undefined,
+      user_uuid: userUuid,
+    });
+
     setSalvando(true)
 
     try {
